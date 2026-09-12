@@ -1,0 +1,5 @@
+# Revisions baked into the pk3 names (bump on every content change: sv_pure clients keep
+# a pk3 of the same name and would never re-download it).
+KVCOD_REV=19
+EXT_VER=29
+EXT_REV=20net

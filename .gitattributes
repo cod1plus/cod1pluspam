@@ -1,0 +1,2 @@
+# Mod files are shipped byte-for-byte inside the pk3s: never convert line endings.
+* -text

@@ -1,0 +1,4 @@
+# built pk3s
+/dist/
+*.pk3
+__pycache__/
