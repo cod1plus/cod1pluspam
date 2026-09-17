@@ -1,4 +1,5 @@
-# built pk3s
+# built pk3s (the published set lives in pk3/, tracked)
 /dist/
 *.pk3
+!pk3/*.pk3
 __pycache__/
