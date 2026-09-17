@@ -10,6 +10,8 @@ kvcodPAM_nolib_v2/    -> zzzzz_kvcodPAM_nolib_v2_REV<N>.pk3        the mod
 rPAM_kvcodPAMext/     -> zzzzz_rPAM_kvcodPAMext_v<M>_REV<K>.pk3    the extension (loads after, overrides)
 VERSION               revision numbers baked into the pk3 names
 build.py              packs both trees into dist/
+tools/make_manifest.py writes pam.manifest, what the client's INSTALL PAM button reads
+pam.manifest          the published file list (name, size, sha256, url) - generated
 ```
 
 ## Build
@@ -30,6 +32,23 @@ python3 build.py --verify /path/to/__rPAMv115b5   # also diff against the pk3s a
 
 **Bump `VERSION` for every content change.** A client that already holds a pk3 of the same
 name never re-downloads it, so a changed pk3 under an old name fails the pure check.
+
+## Publish PAM for the clients (the "INSTALL / UPDATE PAM" button)
+
+The COD1.6X client fetches the mod from a manifest in this repo instead of from the game
+server, so a first join never waits on the in-game download. To publish a new set:
+
+1. Gather the pk3s a **server** runs - its whole `__rPAMv115b5/` folder (mod + map packs,
+   `*.pk3` only) - into one directory. Generating from the server's own files is what makes
+   the clients' copies pass `sv_pure` byte for byte.
+2. Create a GitHub release here, tag `vNN`, and drag every pk3 into its assets.
+3. Write the manifest and commit it:
+   ```sh
+   python3 tools/make_manifest.py /path/to/pk3s        --url https://github.com/cod1plus/cod1pluspam/releases/download/vNN/ --version NN        --remove zzzzz_kvcodPAM_nolib_v2_REV18.pk3     # previous revisions the clients should drop
+   git add pam.manifest && git commit -m "pam.manifest vNN" && git push
+   ```
+   The clients read `https://raw.githubusercontent.com/cod1plus/cod1pluspam/main/pam.manifest`
+   and download only what differs from what they have.
 
 ## What cod1plus changed
 
