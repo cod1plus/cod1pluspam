@@ -3,7 +3,7 @@
 "INSTALL / UPDATE PAM" button (menu, Files tab). One line per pk3 the mod folder must hold.
 
     python3 tools/make_manifest.py <dir> --url <base-url> [--mod __rPAMv115b5] [--version N]
-                                   [--remove old.pk3 ...] [-o pam.manifest]
+                                   [--remove old.pk3 ...] [--cvar NAME VALUE ...] [-o pam.manifest]
 
 <dir>       the pk3s a SERVER runs (a copy of its __rPAMv115b5/): every *.pk3 in it, no
             subfolders, .bak/.tmp/.new ignored. Generating from the server's own folder is
@@ -11,12 +11,18 @@
 --url       where the same files are downloadable, "<name>" appended. For a GitHub release:
             https://github.com/cod1plus/cod1pluspam/releases/download/<tag>/
 --remove    pk3 names the client should delete (previous revisions left in the folder).
+--cvar      a cvar the client seta's once the package is installed (repeatable), e.g.
+            --cvar com_hunkMegs 512 for a texture pack the default hunk cannot hold. Plain
+            tokens only (letters, digits, . - _): the client refuses anything else.
+--mod       target folder under the game dir: the PAM's __rPAMv115b5 (default), or `main`
+            for a texture pack.
 
 Format (parsed by src/features/pam_install.cpp in the client):
     mod <folder>
     version <n>
     file <name> <bytes> <sha256> <url>
     remove <name>
+    cvar <name> <value>
 Commit the result at the repo root; the client fetches
 https://raw.githubusercontent.com/cod1plus/cod1pluspam/main/pam.manifest
 """
@@ -54,6 +60,7 @@ def main():
     ap.add_argument("--mod", default="__rPAMv115b5")
     ap.add_argument("--version", type=int, default=default_version())
     ap.add_argument("--remove", nargs="*", default=[])
+    ap.add_argument("--cvar", nargs=2, action="append", default=[], metavar=("NAME", "VALUE"))
     ap.add_argument("-o", "--out", default=os.path.join(HERE, "..", "pam.manifest"))
     a = ap.parse_args()
 
@@ -73,6 +80,12 @@ def main():
         lines.append("file %s %d %s %s%s" % (n, size, sha256(p), base, n))
     for n in a.remove:
         lines.append("remove %s" % n)
+    for name, value in a.cvar:
+        ok = all(c.isalnum() or c in "._-" for c in name + value)
+        if not ok:
+            print("--cvar %s %s: letters, digits, . - _ only" % (name, value), file=sys.stderr)
+            return 1
+        lines.append("cvar %s %s" % (name, value))
     with open(a.out, "w", encoding="ascii", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
     print("%s: %d file(s), %.1f MB, mod %s v%d" % (a.out, len(names), total / 1048576, a.mod, a.version))
