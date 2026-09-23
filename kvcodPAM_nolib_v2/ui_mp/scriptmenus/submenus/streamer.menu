@@ -24,12 +24,10 @@ menuDef
 		exec "set cg_drawFPS 0";
 		exec "set cg_fov 80";			// the XRAY projection assumes the default field of view
 		
-		open quickmessage_streamersystem_menu_top_left;
-		open quickmessage_streamersystem_menu_top_right;
-		open quickmessage_streamersystem_menu_top_center;
-		open quickmessage_streamersystem_menu_radar;
+		// few menus: the UI loads 64 at most for everything (1.6X client included)
+		open quickmessage_streamersystem_menu_top_left;		// top bar left + radar border
+		open quickmessage_streamersystem_menu_top_right;	// top bar right + score header
 		open quickmessage_streamersystem_menu_scoreboard_sd;
-		open quickmessage_streamersystem_menu_scoreboard_sd_lines;
 
 		// Overlay
 		open "quickmessage_streamersystem_menu_overlay";
@@ -48,11 +46,8 @@ menuDef
 
 		close "quickmessage_streamersystem_menu_overlay";
 		close "quickmessage_streamersystem_menu_scoreboard_sd";
-		close "quickmessage_streamersystem_menu_scoreboard_sd_lines";
 		close "quickmessage_streamersystem_menu_top_left";
 		close "quickmessage_streamersystem_menu_top_right";
-		close "quickmessage_streamersystem_menu_top_center";
-		close "quickmessage_streamersystem_menu_radar";
 		//close "quickmessage_streamersystem_menu_killcam";
 	}
 }
@@ -299,6 +294,14 @@ menuDef
 	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player2", "3", 246, 11)
 	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player3", "4", 304, 11)
 	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player4", "5", 362, 11)
+
+
+	// Border only: menus are drawn above hudelems, the dark background and the dots are
+	// hudelems (_streamer_radar.gsc), screen rectangle 4 48 128 128
+	ITEM_STREAMERSYSTEM_BG(131 47 130 1, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
+	ITEM_STREAMERSYSTEM_BG(131 176 130 1, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
+	ITEM_STREAMERSYSTEM_BG(131 48 1 128, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
+	ITEM_STREAMERSYSTEM_BG(260 48 1 128, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
 }
 
 menuDef
@@ -316,14 +319,7 @@ menuDef
 	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player2", "8", 594, 11)
 	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player3", "9", 652, 11)
 	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player4", "0", 710, 11)
-}
 
-menuDef
-{
-	name			"quickmessage_streamersystem_menu_top_center"
-	rect			-128 0 896 480
-	focuscolor		1 1 1 1
-	style			WINDOW_STYLE_EMPTY
 
 	// score of the left team : score of the right team, round state below
 	itemDef
@@ -354,21 +350,6 @@ menuDef
 		decoration
 	}
 	ITEM_STREAMERSYSTEM_TOPTEXT("ui_streamersystem_top_info", 448, 38, .12, ITEM_ALIGN_CENTER, .85 .85 .85 1)
-}
-
-menuDef
-{
-	name			"quickmessage_streamersystem_menu_radar"
-	rect			-128 0 896 480
-	focuscolor		1 1 1 1
-	style			WINDOW_STYLE_EMPTY
-
-	// Border only: menus are drawn above hudelems, the dark background and the dots are
-	// hudelems (_streamer_radar.gsc), screen rectangle 4 48 128 128
-	ITEM_STREAMERSYSTEM_BG(131 47 130 1, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
-	ITEM_STREAMERSYSTEM_BG(131 176 130 1, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
-	ITEM_STREAMERSYSTEM_BG(131 48 1 128, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
-	ITEM_STREAMERSYSTEM_BG(260 48 1 128, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
 }
 
 menuDef
@@ -545,18 +526,10 @@ menuDef
 	    showcvar		{ "1"; }
 		decoration
 	}
+
+	// player lines (was the separate menu quickmessage_streamersystem_menu_scoreboard_sd_lines)
+	ITEM_SCOREBOARD(0, 28)
 }
 
 
 
-menuDef
-{
-	name			"quickmessage_streamersystem_menu_scoreboard_sd_lines"
-	rect			120 68 400 430
-	//focuscolor		GLOBAL_FOCUSED_COLOR
-	focuscolor		1 1 1 1
-	style			WINDOW_STYLE_EMPTY
-	//blurWorld		0
-
-	ITEM_SCOREBOARD(0, 0)
-}
