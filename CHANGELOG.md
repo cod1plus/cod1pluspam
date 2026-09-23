@@ -24,6 +24,12 @@ Upstream history: `rPAM_kvcodPAMext/_rPAM_kvcodPAMext_changelog.md`.
     one silhouette per enemy, fixed hudelem pool, key V for 4:3 / 16:9 screens,
     `scr_streamer_xray`; the view pitch is not available to scripts (level view assumed).
   - `tools/gen_streamer_icons.py` generates the radar icons (`gfx/streamer/*.tga`).
+  - radar background = a top-down drawing of each map made from its BSP
+    (`tools/gen_radar_overviews.py` -> `gfx/streamer/overview/*.jpg`, 30 images / 38 maps,
+    468 KB, and `_streamer_radar_maps.gsc` with the exact window of each drawing).
+  - the streamer menu file has 6 menus (was 8): the UI loads 64 at most and silently drops
+    the rest (the "ingame" menu was lost with the 1.6X client); top bar cvars are spread over
+    ticks (reliable command overflow when joining the streamer team).
 
 ## REV18 / v28_REV19net (deployed)
 

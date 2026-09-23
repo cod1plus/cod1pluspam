@@ -12,10 +12,12 @@
 	The border is drawn by the streamer menu (cvar ui_streamersystem_radar): menus are drawn
 	above hudelems, so the dark background has to be a hudelem or it would cover the dots.
 
-	CoD1 ships no overview image for any map: the background is a dark square and the world
-	window comes from getStreamerMapConfig(mapname) or, by default, is fitted on the spawn
-	points + bombsites and grows with the positions players actually reach (learned over the
-	rounds of the map, applied at the next round: the radar never rescales mid-round).
+	CoD1 ships no overview image for any map, so the PAM brings its own: a top-down drawing of
+	each map generated from its BSP (tools/gen_radar_overviews.py -> gfx/streamer/overview/ and
+	_streamer_radar_maps.gsc, which holds the exact world window of each drawing). A map without
+	a drawing gets a dark square and a window fitted on the spawn points + bombsites that grows
+	with the positions players actually reach (learned over the rounds, applied at the next
+	round: the radar never rescales mid-round).
 */
 
 init()
@@ -31,6 +33,17 @@ init()
 			precacheShader("gfx/streamer/radar_dir" + i + ".tga");
 		precacheShader("gfx/streamer/radar_dead.tga");
 		precacheShader("black");
+
+		// Background of this map, drawn from its BSP (tools/gen_radar_overviews.py): one
+		// shader per map. Remembered in game[] so a later round never uses an image that
+		// was not precached (setShader would fail).
+		game["streamerRadar_image"] = undefined;
+		c = getStreamerMapConfig(getCvar("mapname"));
+		if (isDefined(c) && isDefined(c.image))
+		{
+			precacheShader(c.image);
+			game["streamerRadar_image"] = c.image;
+		}
 		if (level.gametype == "sd")
 		{
 			// already precached by sd.gsc, repeated so this file does not depend on it
@@ -93,12 +106,11 @@ getStreamerMapConfig(mapname)
 		}
 	}
 
-	switch (mapname)
-	{
-		// Built-in overrides go here, e.g.:
-		// case "mp_harbor": c = spawnstruct(); c.x = -2000; c.y = 900; c.span = 5200; c.up = 90; break;
-		default: break;
-	}
+	// Built-in: every map the server ships has a top-down image and its exact window,
+	// generated from the BSP (_streamer_radar_maps.gsc, tools/gen_radar_overviews.py).
+	// The cvar above wins, without image: its window would not match the drawing.
+	if (!isDefined(c))
+		c = maps\mp\gametypes\_streamer_radar_maps::getOverview(maps\mp\gametypes\global\_global::toLower(mapname));
 
 	return c;
 }
@@ -124,6 +136,8 @@ radarWindow()
 		win.y = c.y;
 		win.span = c.span;
 		win.up = c.up;
+		if (isDefined(c.image) && isDefined(game["streamerRadar_image"]) && game["streamerRadar_image"] == c.image)
+			win.image = c.image;
 	}
 	else
 	{
@@ -230,8 +244,17 @@ Radar_Create()
 	self.streamerRadar_bg.alignX = "left";
 	self.streamerRadar_bg.alignY = "top";
 	self.streamerRadar_bg.sort = -2;
-	self.streamerRadar_bg.alpha = 0.55;
-	self.streamerRadar_bg setShader("black", s, s);
+	if (isDefined(self.streamerRadar_win.image))
+	{
+		self.streamerRadar_bgAlpha = 0.9;		// the map drawing
+		self.streamerRadar_bg setShader(self.streamerRadar_win.image, s, s);
+	}
+	else
+	{
+		self.streamerRadar_bgAlpha = 0.55;	// no drawing for this map: dark square
+		self.streamerRadar_bg setShader("black", s, s);
+	}
+	self.streamerRadar_bg.alpha = self.streamerRadar_bgAlpha;
 
 	self.streamerRadar_dots = [];
 	for (i = 0; i < 10; i++)
@@ -318,12 +341,17 @@ Radar_Destroy()
 Radar_SetVisible(visible)
 {
 	alpha = 0;
+	siteAlpha = 0;
 	if (visible)
-		alpha = 0.55;
+	{
+		alpha = self.streamerRadar_bgAlpha;
+		siteAlpha = 0.9;
+	}
 	if (self.streamerRadar_bg.alpha != alpha)
 		self.streamerRadar_bg.alpha = alpha;
 	for (i = 0; i < self.streamerRadar_sites.size; i++)
-		self.streamerRadar_sites[i].alpha = alpha / 0.55 * 0.9;
+		if (self.streamerRadar_sites[i].alpha != siteAlpha)
+			self.streamerRadar_sites[i].alpha = siteAlpha;
 	if (!visible)
 	{
 		for (i = 0; i < self.streamerRadar_dots.size; i++)
