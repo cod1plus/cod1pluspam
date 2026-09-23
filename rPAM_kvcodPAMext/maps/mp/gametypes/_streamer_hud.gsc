@@ -425,6 +425,28 @@ settingsChangedForPlayer(what) // "", auto, xray, damage
 
 
 
+/*
+	Top bar cvars go through a per-tick budget: joining the streamer team used to send ~90
+	setClientCvar in one server frame (9 per box x 10 boxes + header) and the client dropped
+	with "CL_GetServerCommand: A reliable command was cycled out". An unchanged value costs
+	nothing; a change over budget is simply sent on a following tick (the cache is only
+	updated when the value is really sent). Budget refilled by HUD_PlayerBoxes_Loop.
+*/
+streamerCvar(cvar, value)
+{
+	v = value + "";
+	last = self.pers["cvar_" + cvar];	// cache of setClientCvarIfChanged (names here are lower case)
+	if (isDefined(last) && last == v)
+		return;
+	if (isDefined(self.streamerSystem_cvarBudget))
+	{
+		if (self.streamerSystem_cvarBudget <= 0)
+			return;
+		self.streamerSystem_cvarBudget--;
+	}
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged(cvar, v);
+}
+
 HUD_PlayerBoxes_Loop()
 {
 	self endon("disconnect");
@@ -442,6 +464,8 @@ HUD_PlayerBoxes_Loop()
 	for(;;)
 	{
 		wait level.fps_multiplier * 0.1;
+
+		self.streamerSystem_cvarBudget = 16;	// changed top bar cvars sent per tick, see streamerCvar
 
 		if (!maps\mp\gametypes\_streamer::isStreamerModeEnabled(self))
 		{
@@ -859,11 +883,11 @@ update_top_header(teamLeft, teamRight)
 	else if (isDefined(game["round"]))
 		info = "ROUND " + game["round"];
 
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_name1", top_team_name(teamLeft));
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_name2", top_team_name(teamRight));
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_score1", getTeamScore(teamLeft));
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_score2", getTeamScore(teamRight));
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_info", info);
+	self streamerCvar("ui_streamersystem_top_name1", top_team_name(teamLeft));
+	self streamerCvar("ui_streamersystem_top_name2", top_team_name(teamRight));
+	self streamerCvar("ui_streamersystem_top_score1", getTeamScore(teamLeft));
+	self streamerCvar("ui_streamersystem_top_score2", getTeamScore(teamRight));
+	self streamerCvar("ui_streamersystem_top_info", info);
 }
 
 top_team_name(team)
@@ -1085,8 +1109,8 @@ fill_box(index, barSide, teamname, player)
 		hptext = "" + playerHealth;
 		if (playerHealth < 30) hptext = "^1" + hptext;
 	}
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hp",		hp);
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hptext",	hptext);
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_hp",		hp);
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_hptext",	hptext);
 //k	name += maps\mp\gametypes\global\_global::removeColorsFromString(playerName);
 //3	self setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_health",		health);
 //3	self setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_name",		name);
@@ -1097,13 +1121,12 @@ fill_box(index, barSide, teamname, player)
 
 	//logPrint("fillbox " + name + "\n");
 	//self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_num",		(index+1));
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_health",		health);
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_name",		name);
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_health",		health);
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_name",		name);
 //3	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_score",		player.score + " / " + player.deaths);
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_score",		score + " / " + deaths);
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_weapon",		weapon_text);
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_round_kills",	kills_added);
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_icons",		icons);
+	// _score and _round_kills are not drawn by the top bar: not sent any more (reliable command budget)
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_weapon",		weapon_text);
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_icons",		icons);
 //k	wait .10;
 //F	wait level.fps_multiplier * 0.1;
 }
@@ -1124,15 +1147,12 @@ unfill_box(index, barSide)
 //kikiii added this block
 	// vcod doesnt work?
 	//logPrint("unfillbox emptyName " + "\n");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_num", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_name", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_score", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_weapon", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_round_kills", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_health", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_icons", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hp", "");
-	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hptext", "");
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_name", "");
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_weapon", "");
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_health", "");
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_icons", "");
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_hp", "");
+	self streamerCvar("ui_streamersystem_team"+teamNum+"_player"+index+"_hptext", "");
 
 //k	wait .10;
 //F	wait level.fps_multiplier * 0.1;
