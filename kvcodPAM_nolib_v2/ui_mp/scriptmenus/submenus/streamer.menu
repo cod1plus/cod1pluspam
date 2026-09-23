@@ -16,15 +16,18 @@ menuDef
 		exec "setfromcvar cg_hudChatPosition_original cg_hudChatPosition";
 		exec "setfromcvar cg_drawLagometer_original cg_drawLagometer";
 		exec "setfromcvar cg_drawFPS_original cg_drawFPS";
+		exec "setfromcvar cg_fov_original cg_fov";
 		exec "set con_gamemessagetime 99";	// killfeed seconds
 		exec "set cg_hudCompassSize 1";
-		exec "set cg_hudChatPosition 5 135";
+		exec "set cg_hudChatPosition 5 186";	// under the radar
 		exec "set cg_drawLagometer 0";
 		exec "set cg_drawFPS 0";
+		exec "set cg_fov 80";			// the XRAY projection assumes the default field of view
 		
-		open quickmessage_streamersystem_menu_bars_blue_red;
-		open quickmessage_streamersystem_menu_bars_blue_red2;
-		open quickmessage_streamersystem_menu_matchinfo_blue_red;
+		open quickmessage_streamersystem_menu_top_left;
+		open quickmessage_streamersystem_menu_top_right;
+		open quickmessage_streamersystem_menu_top_center;
+		open quickmessage_streamersystem_menu_radar;
 		open quickmessage_streamersystem_menu_scoreboard_sd;
 		open quickmessage_streamersystem_menu_scoreboard_sd_lines;
 
@@ -41,13 +44,15 @@ menuDef
 		exec "setfromcvar cg_hudChatPosition cg_hudChatPosition_original";
 		exec "setfromcvar cg_drawLagometer cg_drawLagometer_original";
 		exec "setfromcvar cg_drawFPS cg_drawFPS_original";
+		exec "setfromcvar cg_fov cg_fov_original";
 
 		close "quickmessage_streamersystem_menu_overlay";
 		close "quickmessage_streamersystem_menu_scoreboard_sd";
 		close "quickmessage_streamersystem_menu_scoreboard_sd_lines";
-		close "quickmessage_streamersystem_menu_bars_blue_red";
-		close "quickmessage_streamersystem_menu_bars_blue_red2";
-		open quickmessage_streamersystem_menu_matchinfo_blue_red;
+		close "quickmessage_streamersystem_menu_top_left";
+		close "quickmessage_streamersystem_menu_top_right";
+		close "quickmessage_streamersystem_menu_top_center";
+		close "quickmessage_streamersystem_menu_radar";
 		//close "quickmessage_streamersystem_menu_killcam";
 	}
 }
@@ -111,6 +116,8 @@ menuDef
 
 	execKey "r"  { play "mouse_click"; open quickmessage_streamersystem_menu_killcam; }
 	execKey "x"  { play "mouse_click"; scriptmenuresponse "streamersystem_xray"; }
+	execKey "m"  { play "mouse_click"; scriptmenuresponse "streamersystem_radar"; }
+	execKey "v"  { play "mouse_click"; scriptmenuresponse "streamersystem_aspect"; }
 	execKey "h"  { play "mouse_click"; scriptmenuresponse "streamersystem_hit"; }
 	execKey "c"  { play "mouse_click"; scriptmenuresponse "streamersystem_color"; close quickmessage_streamersystem_menu; }
 	execKey "f"  { play "mouse_click"; exec "+activate; -activate"; } // simulate F bind press
@@ -161,31 +168,33 @@ menuDef
 
 	// Keys help
 	//ITEM_STREAMERSYSTEM_BG(-52 24 175 125 HORIZONTAL_ALIGN_RIGHT 0, 0 0 0 0.9, "ui_spectatorsystem_keys", showDvar { "1" })
-	ITEM_STREAMERSYSTEM_BG(588 24 175 125, 0 0 0 0.9, "ui_spectatorsystem_keys", showCvar { "1" })
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Left Mouse]^7 to follow next player", 	-48, 35, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[Left Mouse]^7 to follow next player", 	592, 35, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Right Mouse]^7 to follow previous player", 	-48, 45, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[Right Mouse]^7 to follow previous player", 	592, 45, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Middle Mouse]^7 to toggle Auto-Spectating", 	-48, 55, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[Middle Mouse]^7 to toggle Auto-Spectating", 	592, 55, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[R]^7 to toggle replay menu", 			-48, 65, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[R]^7 to toggle replay menu", 			592, 65, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[X]^7 to toggle XRAY", 			-48, 75, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[X]^7 to toggle XRAY", 			592, 75, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[H]^7 to toggle hit damage", 			-48, 85, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[H]^7 to toggle hit damage", 			592, 85, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[C]^7 to toggle layout color", 		-48, 95, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[C]^7 to toggle layout color", 		592, 95, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[1,2,3,4,5]^7 to follow player from Team 1", 	-48, 105, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[1,2,3,4,5]^7 to follow player from Team 1", 	592, 105, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[6,7,8,9,0]^7 to follow player from Team 2", 	-48, 115, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[6,7,8,9,0]^7 to follow player from Team 2", 	592, 115, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[TAB]^7 to toggle scoreboard", 		-48, 125, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[TAB]^7 to toggle scoreboard", 		592, 125, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[ESC]^7 to close streamer menu", 		-48, 135, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[ESC]^7 to close streamer menu", 		592, 135, 0.18, "ui_spectatorsystem_keys")
-	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Space]^7 to toggle help", 			-48, 145, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
-	ITEM_STREAMERSYSTEM_KEY("Press ^3[Space]^7 to toggle help", 			592, 145, 0.18, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_BG(588 50 175 145, 0 0 0 0.9, "ui_spectatorsystem_keys", showCvar { "1" })
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Left Mouse]^7 to follow next player", 	-48, 61, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[Left Mouse]^7 to follow next player", 	592, 61, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Right Mouse]^7 to follow previous player", 	-48, 71, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[Right Mouse]^7 to follow previous player", 	592, 71, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Middle Mouse]^7 to toggle Auto-Spectating", 	-48, 81, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[Middle Mouse]^7 to toggle Auto-Spectating", 	592, 81, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[R]^7 to toggle replay menu", 			-48, 91, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[R]^7 to toggle replay menu", 			592, 91, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[X]^7 to toggle XRAY", 			-48, 101, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[X]^7 to toggle XRAY", 			592, 101, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[H]^7 to toggle hit damage", 			-48, 111, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[H]^7 to toggle hit damage", 			592, 111, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[C]^7 to toggle layout color", 		-48, 121, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[C]^7 to toggle layout color", 		592, 121, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[1,2,3,4,5]^7 to follow player from Team 1", 	-48, 131, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[1,2,3,4,5]^7 to follow player from Team 1", 	592, 131, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[6,7,8,9,0]^7 to follow player from Team 2", 	-48, 141, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[6,7,8,9,0]^7 to follow player from Team 2", 	592, 141, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[TAB]^7 to toggle scoreboard", 		-48, 151, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[TAB]^7 to toggle scoreboard", 		592, 151, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[ESC]^7 to close streamer menu", 		-48, 161, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[ESC]^7 to close streamer menu", 		592, 161, 0.18, "ui_spectatorsystem_keys")
+	//ITEM_STREAMERSYSTEM_KEY("Press ^3[Space]^7 to toggle help", 			-48, 171, 0.18, HORIZONTAL_ALIGN_RIGHT, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[Space]^7 to toggle help", 			592, 171, 0.18, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[M]^7 to toggle radar", 			592, 181, 0.18, "ui_spectatorsystem_keys")
+	ITEM_STREAMERSYSTEM_KEY("Press ^3[V]^7 for XRAY screen (4:3 / 16:9)", 	592, 191, 0.18, "ui_spectatorsystem_keys")
 
 	//ITEM_STREAMERSYSTEM_BG(-52 278 175 25 HORIZONTAL_ALIGN_RIGHT 0, 0 0 0 0.9, "ui_spectatorsystem_keys", showDvar { "1" })
 	ITEM_STREAMERSYSTEM_BG(588 278 175 25, 0 0 0 0.9, "ui_spectatorsystem_keys", showCvar { "1" })
@@ -271,56 +280,95 @@ menuDef
 
 menuDef
 {
-  	name 			"quickmessage_streamersystem_menu_matchinfo_blue_red"
-    rect 			-128 0 896 480
-	focuscolor		1 1 1 1
-	style			WINDOW_STYLE_EMPTY
-
-	MATCHINFO("ui_matchinfo_team1_team", "ui_matchinfo_team2_team", "ui_matchinfo_show", 0.16 0.28 0.74 1, 0.5 0 0 1)
-}
-
-menuDef
-{
-	name			"quickmessage_streamersystem_menu_bars_blue_red"
+	name			"quickmessage_streamersystem_menu_top_left"
 	rect			-128 0 896 480
-	//rect			0 0 640 480
-	//focuscolor		GLOBAL_FOCUSED_COLOR
 	focuscolor		1 1 1 1
 	style			WINDOW_STYLE_EMPTY
-	//blurWorld		0
 	onOpen
 	{
+		// team colours of the stream (restored by quickmessage_streamersystem_menu onClose)
 		exec "set g_TeamColor_Allies .36 .48 .94 .9";
 		exec "set g_TeamColor_Axis .7 .0 .0 .9";
 	}
 
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team1_player0", "1", 128, 154,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team1_player1", "2", 128, 178,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team1_player2", "3", 128, 202,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team1_player3", "4", 128, 226,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team1_player4", "5", 128, 250,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
+	// team name above the boxes
+	ITEM_STREAMERSYSTEM_TOPTEXT("ui_streamersystem_top_name1", 130, 9, .15, ITEM_ALIGN_LEFT, 1 1 1 .9)
+
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player0", "1", 130, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player1", "2", 188, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player2", "3", 246, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player3", "4", 304, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team1_player4", "5", 362, 11)
 }
 
 menuDef
 {
-	name			"quickmessage_streamersystem_menu_bars_blue_red2"
+	name			"quickmessage_streamersystem_menu_top_right"
 	rect			-128 0 896 480
-	//rect			0 0 640 480
-	//focuscolor		GLOBAL_FOCUSED_COLOR
 	focuscolor		1 1 1 1
 	style			WINDOW_STYLE_EMPTY
-	//blurWorld		0
-	onOpen
-	{
-		exec "set g_TeamColor_Allies .36 .48 .94 .9";
-		exec "set g_TeamColor_Axis .7 .0 .0 .9";
-	}
 
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team2_player0", "6", 640, 154,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team2_player1", "7", 640, 178,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team2_player2", "8", 640, 202,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team2_player3", "9", 640, 226,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
-	ITEM_STREAMERSYSTEM_LINE("ui_streamersystem_team2_player4", "0", 640, 250,   .16 .28 .74 .9,   .5 .0 .0 .9,    .02 .04 .11 1,    .07 .0 .0 1)
+	// team name above the boxes
+	ITEM_STREAMERSYSTEM_TOPTEXT("ui_streamersystem_top_name2", 766, 9, .15, ITEM_ALIGN_RIGHT, 1 1 1 .9)
+
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player0", "6", 478, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player1", "7", 536, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player2", "8", 594, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player3", "9", 652, 11)
+	ITEM_STREAMERSYSTEM_TOPBOX("ui_streamersystem_team2_player4", "0", 710, 11)
+}
+
+menuDef
+{
+	name			"quickmessage_streamersystem_menu_top_center"
+	rect			-128 0 896 480
+	focuscolor		1 1 1 1
+	style			WINDOW_STYLE_EMPTY
+
+	// score of the left team : score of the right team, round state below
+	itemDef
+	{
+		style			WINDOW_STYLE_FILLED
+		rect			420 0 56 43
+		backcolor		.04 .04 .05 .88
+		visible			1
+		cvartest		"ui_streamersystem_top_name1"
+		hidecvar		{ "" }
+		decoration
+	}
+	ITEM_STREAMERSYSTEM_TOPTEXT("ui_streamersystem_top_score1", 443, 25, .34, ITEM_ALIGN_RIGHT, 1 1 1 1)
+	ITEM_STREAMERSYSTEM_TOPTEXT("ui_streamersystem_top_score2", 453, 25, .34, ITEM_ALIGN_LEFT, 1 1 1 1)
+	itemDef
+	{
+		visible			1
+		rect			0 0 0 0
+		origin			448 23
+		forecolor		1 1 1 .55
+		type			ITEM_TYPE_TEXT
+		textfont		UI_FONT_NORMAL
+		textscale		.3
+		textalign		ITEM_ALIGN_CENTER
+		text			":"
+		cvartest		"ui_streamersystem_top_name1"
+		hidecvar		{ "" }
+		decoration
+	}
+	ITEM_STREAMERSYSTEM_TOPTEXT("ui_streamersystem_top_info", 448, 38, .12, ITEM_ALIGN_CENTER, .85 .85 .85 1)
+}
+
+menuDef
+{
+	name			"quickmessage_streamersystem_menu_radar"
+	rect			-128 0 896 480
+	focuscolor		1 1 1 1
+	style			WINDOW_STYLE_EMPTY
+
+	// Border only: menus are drawn above hudelems, the dark background and the dots are
+	// hudelems (_streamer_radar.gsc), screen rectangle 4 48 128 128
+	ITEM_STREAMERSYSTEM_BG(131 47 130 1, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
+	ITEM_STREAMERSYSTEM_BG(131 176 130 1, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
+	ITEM_STREAMERSYSTEM_BG(131 48 1 128, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
+	ITEM_STREAMERSYSTEM_BG(260 48 1 128, 1 1 1 .3, "ui_streamersystem_radar", showCvar { "1" })
 }
 
 menuDef

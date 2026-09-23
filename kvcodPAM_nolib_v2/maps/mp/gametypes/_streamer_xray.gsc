@@ -32,6 +32,11 @@ init()
 		//maps\mp\gametypes\global\_global::precacheString2("STRING_STREAMERSYSTEM_ARROW_RIGHT", &">");
 	}
 
+	// XRAY hudelems are keyed by client number
+	level.streamerSystem_maxClients = getCvarInt("sv_maxclients");
+	if (level.streamerSystem_maxClients < 1 || level.streamerSystem_maxClients > 64)
+		level.streamerSystem_maxClients = 64;
+
 	maps\mp\gametypes\global\_global::addEventListener("onConnected",  ::onConnected);
 }
 
@@ -43,8 +48,11 @@ onConnected()
 
 	self.streamerSystem_XRAY_inFreeSpectating = false;
 
-	// Disable XRAY by default every round
-	self.pers["streamerSystem_XRAY"] = false;
+	// The XRAY choice [X] now stays on from one round to the next (caster overlay)
+
+	// 0 = 4:3, 1 = 16:9 wide (1.6X), 2 = 16:9 stretched - kept for the whole session
+	if (!isDefined(self.pers["streamerSystem_xrayAspect"]))
+		self.pers["streamerSystem_xrayAspect"] = 0;
 	logprint("_streamer_xray::onConnected end\n");
 }
 
@@ -69,453 +77,304 @@ toggle()
 
 
 
-XRAY_Destroy()
+// V key in the streamer menu: how the streamer's game projects the view.
+// The server cannot read the streamer's resolution, so he tells it once.
+toggleAspect()
 {
-	// Destroy all
-	for(i = 0; i < self.streamerSystem_XRAY_names.size; i++)
-	{
-		// If HUD is not defined, it means player disconnect and HUD object was deleted
-		if (isDefined(self.streamerSystem_XRAY_names[i]))
-			self.streamerSystem_XRAY_names[i] destroy();
-		if (isDefined(self.streamerSystem_XRAY_images[i]))
-			self.streamerSystem_XRAY_images[i] destroy();
-	}
-	self.streamerSystem_XRAY_names = undefined;
-	self.streamerSystem_XRAY_images = undefined;
+	self.pers["streamerSystem_xrayAspect"]++;
+	if (self.pers["streamerSystem_xrayAspect"] > 2)
+		self.pers["streamerSystem_xrayAspect"] = 0;
 
-	if (level.debug_spectator) self iprintln("autospec> XRAY HUD destroyed ^1ALL");
+	self thread maps\mp\gametypes\_streamer_hud::settingsChangedForPlayer("aspect");
 }
 
+aspectName()
+{
+	if (!isDefined(self.pers["streamerSystem_xrayAspect"]))
+		return "4:3";
+	switch (self.pers["streamerSystem_xrayAspect"])
+	{
+		case 1:  return "16:9 wide (1.6X)";
+		case 2:  return "16:9 stretched";
+		default: return "4:3";
+	}
+}
+
+
+XRAY_Stop()
+{
+	self notify("streamerSystem_xray_loop");
+	self XRAY_Destroy();
+}
+
+XRAY_Destroy()
+{
+	if (isDefined(self.streamerSystem_XRAY_huds))
+	{
+		keys = getArrayKeys2(self.streamerSystem_XRAY_huds);
+		for (i = 0; i < keys.size; i++)
+		{
+			hud = self.streamerSystem_XRAY_huds[keys[i]];
+			if (isDefined(hud))
+				hud destroy();
+		}
+	}
+	self.streamerSystem_XRAY_huds = undefined;
+	self.streamerSystem_XRAY_count = 0;
+	self.streamerSystem_playerToFollow = undefined;
+}
+
+// CoD1 has no getArrayKeys: the pool is keyed by client number
+getArrayKeys2(array)
+{
+	keys = [];
+	for (i = 0; i < level.streamerSystem_maxClients; i++)
+		if (isDefined(array[i]))
+			keys[keys.size] = i;
+	return keys;
+}
+
+
 /*
-self is spectater
+	XRAY: a silhouette (stance + facing) drawn over every enemy of the followed player,
+	through walls. self is the streamer.
+
+	What CoD1 allows, and what it does not:
+	- the engine has no outline / wallhack render and no world-positioned hudelem: the only way
+	  is to project each player on the screen ourselves and move a 2D hudelem there;
+	- the script sees a player's view yaw (player.angles[1]) but NOT his view pitch
+	  (ClientThink writes angles = (0, yaw, 0), there is no getPlayerAngles in CoD1). The
+	  projection therefore assumes a level view: horizontal position and size are right, the
+	  height drifts when the followed player looks up or down;
+	- the zoom of an aimed weapon is not visible to the script either: while the followed
+	  player aims down the sights the markers spread out;
+	- the streamer's field of view is fixed to 80 by the streamer menu, his screen shape is
+	  given with V (4:3 / 16:9 wide / 16:9 stretched).
+
+	One hudelem per shown enemy (5 when following in 5v5, 10 when flying), created the first
+	time it is needed, hidden with alpha instead of being recreated, all destroyed when the
+	XRAY is turned off or the streamer leaves. Updated every server frame.
 */
 XRAY_Loop()
 {
 	self endon("disconnect");
+	self notify("streamerSystem_xray_loop");
+	self endon("streamerSystem_xray_loop");
 
-	if (isDefined(self.streamerSystem_XRAY_names))
-		self XRAY_Destroy();
-	self.streamerSystem_XRAY_names = [];
-	self.streamerSystem_XRAY_images = [];
+	self XRAY_Destroy();
+	self.streamerSystem_XRAY_huds = [];
 
-	self thread FollowCloseByPlayer();
+	if (!isDefined(self.pers["streamerSystem_xrayAspect"]))
+		self.pers["streamerSystem_xrayAspect"] = 0;
 
-	i_XRAY = 0;
 	freeSpectating = self.streamerSystem_freeSpectating;
+	tick = 0;
 
-	for(;;)
+	for (;;)
 	{
-		// Clear unused HUD elements
-		for (i = self.streamerSystem_XRAY_names.size - 1; i >= i_XRAY; i--)
-		{
-			// If HUD is not defined, it means player disconnect and HUD object was deleted
-			if (isDefined(self.streamerSystem_XRAY_names[i]))
-				self.streamerSystem_XRAY_names[i] destroy();
-			if (isDefined(self.streamerSystem_XRAY_images[i]))
-				self.streamerSystem_XRAY_images[i] destroy();
-
-			self.streamerSystem_XRAY_names[i] = undefined;
-			self.streamerSystem_XRAY_images[i] = undefined;
-
-			if (level.debug_spectator) self iprintln("autospec> XRAY HUD destroyed index " + i);
-		}
-
 		wait level.frame;
+		tick++;
 
-		i_XRAY = 0;
-
-		// Player disconnects
-		if (!isDefined(self))
+		if (!maps\mp\gametypes\_streamer::isStreamerModeEnabled(self))
 			break;
-		// Variables destroyed (not likely)
-		if (!isDefined(self.streamerSystem_XRAY_names) || !isDefined(self.streamerSystem_XRAY_images))
-			break;
-		// All needs to be removed (changed team)
-		if (self.pers["team"] != "streamer")
-			break;
-		// Hide hud in Readyup or bash
-		if (/*level.in_readyup || */level.in_bash)
-			continue;
-		// Dont show XRAY if killcam or its turned off
-		if (isDefined(self.killcam))
-			continue;
-
 
 		// If player started free spectating, force XRAY by another toggler
 		if (freeSpectating != self.streamerSystem_freeSpectating && self.streamerSystem_freeSpectating)
 			self.streamerSystem_XRAY_inFreeSpectating = true;
 		freeSpectating = self.streamerSystem_freeSpectating;
 
-		// Get spectated player
-		spectated_player = undefined;
-		if (self.streamerSystem_turnedOn && isDefined(level.streamerSystem_player))
-			spectated_player = level.streamerSystem_player;
-
-
-		// In free spectating is XRAY enabled by default (to enable follow close by player)
-		// There is separated toggler for that
-		if (self.streamerSystem_freeSpectating)
+		// Camera: the followed player, or the streamer himself when flying
+		camera = undefined;
+		enabled = level.scr_streamer_xray && !isDefined(self.killcam) && !level.in_bash && game["state"] != "intermission" && !self.streamerSystem_inCinematic;
+		if (enabled)
 		{
-			// XRAY is turned off
-			if (!self.streamerSystem_XRAY_inFreeSpectating)
-				continue;
-		}
-		else
-		{
-			// XRAY is turned off
-			if (!self.pers["streamerSystem_XRAY"])
-				continue;
-
-			// Show xray only if we know spectated player
-			if (!isDefined(spectated_player))
-				continue;
-		}
-
-
-		// Find players that will be showed via XRAY
-		players = getentarray("player", "classname");
-		for(i = 0; i < players.size; i++)
-		{
-			player = players[i];
-			if (player == self || !(player.pers["team"] == "allies" || player.pers["team"] == "axis"))
-				continue;
-			if (player.sessionstate != "playing" && player.sessionstate != "dead")
-				continue;
-
-			// Skip spectated player
-			if (isDefined(spectated_player) && player == spectated_player)
-				continue;
-
-			// When auto-spectating (not flying) and followed player died, hide all (because game does not provide correct angles in this session state)
-			if (isDefined(spectated_player) && spectated_player.sessionstate != "playing")
-				continue;
-
-			// When auto-spectating show only enemy (except for DM where show all players)
-			// When free-flying show all players
-			if (isDefined(spectated_player) && spectated_player.sessionteam == player.sessionteam && player.sessionteam != "none")
-				continue;
-
-
-			// Create new HUD element
-			isNew = false;
-			if (!isDefined(self.streamerSystem_XRAY_names[i_XRAY]))
+			if (self.streamerSystem_freeSpectating)
 			{
-				self.streamerSystem_XRAY_names[i_XRAY] = maps\mp\gametypes\global\_global::addHUDClient(self, 10, 10, 1.2, (1,1,1), "center", "bottom", "subleft", "subtop");
-				self.streamerSystem_XRAY_names[i_XRAY].name = "name";
-				self.streamerSystem_XRAY_names[i_XRAY].archived = false;
-
-				self.streamerSystem_XRAY_images[i_XRAY] = maps\mp\gametypes\global\_global::addHUDClient(self, 10, 10, 1.2, (1,1,1), "center", "bottom", "subleft", "subtop");
-				self.streamerSystem_XRAY_images[i_XRAY].name = "layout";
-				self.streamerSystem_XRAY_images[i_XRAY].archived = false;
-				self.streamerSystem_XRAY_images[i_XRAY].sort = -1;
-
-				isNew = true;
-
-				if (level.debug_spectator) self iprintln("autospec> XRAY HUD added NEW index " + i_XRAY);
+				if (self.streamerSystem_XRAY_inFreeSpectating)
+					camera = self;
 			}
-
-			// Update HUD
-			if (isNew || self.streamerSystem_XRAY_names[i_XRAY].player != player)
-			{
-				self.streamerSystem_XRAY_names[i_XRAY].player = player;
-				self.streamerSystem_XRAY_names[i_XRAY].offset = (0, 0, 25);
-				self.streamerSystem_XRAY_names[i_XRAY].tag = "head";
-				self.streamerSystem_XRAY_names[i_XRAY].string = "name"; // name | < | >
-				self.streamerSystem_XRAY_names[i_XRAY].fontscale = 0.8;
-				//self.streamerSystem_XRAY_names[i_XRAY] SetPlayerNameString(player);
-				//self.streamerSystem_XRAY_names[i_XRAY] thread maps\mp\gametypes\global\_global::SetPlayerWaypoint(self, player);
-				//self.streamerSystem_XRAY_names[i_XRAY] thread hud_waypoint_animate(self, player);
-
-				self.streamerSystem_XRAY_images[i_XRAY].player = player;
-				self.streamerSystem_XRAY_images[i_XRAY].offset = (0, 0, -15);
-				self.streamerSystem_XRAY_images[i_XRAY] thread maps\mp\gametypes\global\_global::SetPlayerWaypoint(self, player);
-				self.streamerSystem_XRAY_images[i_XRAY] thread hud_waypoint_animate(self, player);
-			}
-
-			i_XRAY++;
+			else if (self.pers["streamerSystem_XRAY"] && self.streamerSystem_turnedOn && isDefined(level.streamerSystem_player) && isPlayer(level.streamerSystem_player) && level.streamerSystem_player.sessionstate == "playing")
+				camera = level.streamerSystem_player;
 		}
-	}
 
-	// Destroy HUD (unles player disconnects)
-	if (isDefined(self))
-		self XRAY_Destroy();
-}
-
-
-/*
-When free-flying check for close-by player according to XRAY names
-*/
-FollowCloseByPlayer()
-{
-	self endon("disconnect");
-
-	//self.streamerSystem_HUD_followPlayerName = maps\mp\gametypes\global\_global::addHUDClient(self, 0, 50, 1.2, (1,1,1), "center", "top", "center", "top");
-	self.streamerSystem_HUD_followPlayerName = maps\mp\gametypes\global\_global::addHUDClient(self, 320, 50, 1.2, (1,1,1), "center", "top", "center", "top");
-	self.streamerSystem_HUD_followPlayerName.alpha = 0;
-
-	saved_player_last = undefined;
-
-	for(;;)
-	{
-		wait level.frame;
-
-		// All needs to be removed (changed team or timeout is called)
-		if (!isDefined(self) || self.pers["team"] != "streamer" /*|| level.in_readyup*/)
-			break;
-
-		if (!self.streamerSystem_freeSpectating)
-			continue;
-
-		saved_dist2D = 0;
-		saved_dist3D = 0;
-		saved_player = undefined;
-
-		for(i = 0; i < self.streamerSystem_XRAY_names.size; i++)
+		if (!isDefined(camera))
 		{
-			hud = self.streamerSystem_XRAY_names[i];
-
-			// If HUD is not defined, it means player disconnect and HUD object was deleted
-			if (!isDefined(hud) || !isDefined(hud.player) || !isAlive(hud.player))
-				continue;
-
-			// Find out looking at player to follow on click
-			dist3D = distance(self.origin, hud.player.origin);
-
-			// If text is somewhere in rectangle around center
-			if ((hud.x > 160 && hud.x < 480 && hud.y > 120 && hud.y < 360) || (dist3D < 300 && hud.x > 160 && hud.x < 480))
+			// Turned off: free the hudelems. Only hidden for a moment: keep them.
+			if (!level.scr_streamer_xray || (self.streamerSystem_freeSpectating && !self.streamerSystem_XRAY_inFreeSpectating) || (!self.streamerSystem_freeSpectating && !self.pers["streamerSystem_XRAY"]))
 			{
-				if (dist3D < 1000)
+				if (self.streamerSystem_XRAY_count > 0)
 				{
-					dist2D = distance((hud.x, hud.y, 0), (320, 240, 0));	// Distance of text from center - text is in 640x480 rectangle aligned left top
-
-					if (!isDefined(saved_player) || (dist2D < saved_dist2D && dist3D < saved_dist3D))
-					{
-						saved_dist2D = dist2D;
-						saved_dist3D = dist3D;
-						saved_player = hud.player;
-					}
+					self XRAY_Destroy();
+					self.streamerSystem_XRAY_huds = [];
 				}
 			}
-		}
-
-		time = 0.1;
-
-		if (isDefined(saved_player))
-		{
-			if (isDefined(saved_player_last) && saved_player_last != saved_player)
-			{
-				self.streamerSystem_HUD_followPlayerName fadeOverTime(time);
-				self.streamerSystem_HUD_followPlayerName.alpha = 0;
-				wait level.fps_multiplier * time;
-				if (!isDefined(self)) break; // in case player disconnects
-			}
-			if (!isDefined(saved_player_last) || saved_player_last != saved_player)
-			{
-				//self.streamerSystem_HUD_followPlayerName SetPlayerNameString(saved_player);
-				self.streamerSystem_HUD_followPlayerName fadeOverTime(time);
-				self.streamerSystem_HUD_followPlayerName.alpha = 1;
-				wait level.fps_multiplier * time;
-				if (!isDefined(self)) break; // in case player disconnects
-			}
-		}
-		else if (isDefined(saved_player_last))
-		{
-			self.streamerSystem_HUD_followPlayerName fadeOverTime(time);
-			self.streamerSystem_HUD_followPlayerName.alpha = 0;
-			wait level.fps_multiplier * time;
-			if (!isDefined(self)) break; // in case player disconnects
-		}
-
-		saved_player_last = saved_player;
-
-		self.streamerSystem_playerToFollow = saved_player;
-	}
-
-	self.streamerSystem_HUD_followPlayerName destroy();
-}
-
-
-
-
-// self is HUD, spectator is hud owner and player is waypoined player
-hud_waypoint_animate(spectator, player)
-{
-	// Make sure only 1 thread is running on this HUD element
-	self notify("hud_waypoint_animate");
-	self endon("hud_waypoint_animate");
-
-	alpha_old = 0;
-	alpha_cnt = 0;
-	alpha_last = 0;
-	self.alpha = 0;
-
-	for (;;)
-	{
-		wait level.frame;
-		wait 0.05;
-
-		if (!isDefined(self) || !isDefined(spectator) || !isDefined(player))
-			break;
-
-		// Get spectated player
-		spectated_player = spectator;
-		if (!isDefined(spectator.killcam) && spectator.streamerSystem_turnedOn && isDefined(level.streamerSystem_player))
-			spectated_player = level.streamerSystem_player;
-
-
-		alpha = 0.0;
-		if (isAlive(player))
-		{
-			// Player is far way
-			dist = distance(spectated_player.origin, player.origin);
-
-			/*
-			if (self.name == "name")
-			{
-				if (self.x < 40)
-				{
-					self.x = 40;
-					self.y = 310;
-
-					if (self.string != "<")
-					{
-						self.string = "<";
-						self SetText(game["STRING_STREAMERSYSTEM_ARROW_LEFT"]);
-						self.fontscale = 1.2;
-					}
-				}
-				else if (self.x > 640 - 40)
-				{
-					self.x = 640 - 40;
-					self.y = 310;
-
-					if (self.string != ">")
-					{
-						self.string = ">";
-						self SetText(game["STRING_STREAMERSYSTEM_ARROW_RIGHT"]);
-						self.fontscale = 1.2;
-					}
-				}
-				else
-				{
-					if (self.string != "name")
-					{
-						self.string = "name";
-						//self SetPlayerNameString(player);
-						self.fontscale = 0.8;
-						alpha_last = 0; // to avoid animation from 1 to 0
-					}
-				}
-
-				// Show name only if enemy is close, in free spectating or if arrows are showed
-				if (spectator.streamerSystem_freeSpectating || self.string == "<" || self.string == ">")
-					alpha = 1;
-				else if (dist > 0 && dist < 1500)
-				{
-					size = (1500 / dist); //ex:   far = 1;  close = 6;   very close = 300
-					size = size / 4; // make it smaller numbers
-					if (size > 1.0) size = 1.0;
-					if (size < 0.5) size = 0.5;
-
-					self.fontscale = size;
-					alpha = 1;
-				}
-			}
-			*/
-
-			if (self.name == "layout")
-			{
-				// Hide player icon when player is visible
-				if (!spectated_player maps\mp\gametypes\global\_global::isPlayerInSight(player) && !spectator.streamerSystem_freeSpectating)
-				{
-					alpha = 0.5;
-				}
-			}
-
-			// Hide if mouse is over
-			if (!spectator.streamerSystem_freeSpectating)
-			{/*
-				// If is in center, add alpha
-				dist2D = distance((self.x, self.y, 0), (320, 240, 0));	// Distance of text from center - text is in 640x480 rectangle aligned left top
-				if (dist2D <= 25)
-					alpha = 0.0;
-				else if (dist2D > 25 && dist2D <= 150)
-					alpha = alpha * ((dist2D-25) / 125);*/
-			}
-		}
-
-		// Alpha smooth animation
-		if (alpha_last != alpha)
-		{
-			alpha_old = self.alpha;
-			alpha_cnt = 10;
-			alpha_last = alpha;
-		}
-		if (alpha_cnt > 0)
-		{
-			self.alpha = alpha_old + ((alpha - alpha_old) / 10) * (10-alpha_cnt);
-			alpha_cnt--;
-		}
-		else
-			self.alpha = alpha;
-
-
-		// Item is not visible, no need to continue animation
-		if (self.alpha == 0)
-			continue;
-
-
-		if (self.name == "name")
-		{
-			color = (0.8, 0.8, 0.8);
-
-			self.color = color;
-		}
-
-
-		if (self.name == "layout")
-		{
-			stance = player maps\mp\gametypes\global\player::getStance(); // prone crouch stand
-
-			//angles = player getPlayerAngles();
-			angles = player.angles;
-
-			diff = (player.origin - spectated_player.origin);
-			diff = (diff[0], diff[1], 0);
-			diff = vectortoangles(diff);
-
-			angle = (angles[1] - diff[1]);
-
-			if (angle > 180)	angle -= 360;
-			else if (angle < -180)	angle += 360;
-			angle += 180; // flip direction, now in range 0 <-> 360
-			if (angle > 180) angle -= 360; // back to range -180 <-> +180
-
-
-			if ((angle > 135 && angle <= 180) || (angle < -135 && angle >= -180))
-				self.shader = "images/stance_" + stance + "_back.dds";
-			else if (angle > 45 && angle < 135)
-				self.shader = "images/stance_" + stance + "_right.dds";
-			else if (angle < -45 && angle > -135)
-				self.shader = "images/stance_" + stance + "_left.dds";
 			else
-				self.shader = "images/stance_" + stance + "_front.dds";
-			//self.shader = "gfx/hud/stance_" + stance + ".dds";
+				self XRAY_HideAll();
+			self.streamerSystem_playerToFollow = undefined;
+			continue;
+		}
 
-			self.w = 25;
-			self.h = 25;
-			self.scale = 1400;
+		self XRAY_Update(camera, tick % 4 == 0);
+	}
 
-			color = (0.9, 0.9, 0.9);
+	self XRAY_Destroy();
+}
 
-			if (player.health <= 0)
-				color = (1, 0, 0); // red
-			else if (player.health < 100)
+XRAY_HideAll()
+{
+	for (i = 0; i < level.streamerSystem_maxClients; i++)
+	{
+		hud = self.streamerSystem_XRAY_huds[i];
+		if (isDefined(hud) && hud.alpha != 0)
+			hud.alpha = 0;
+	}
+}
+
+XRAY_Update(camera, checkSight)
+{
+	// Projection constants (640x480 virtual screen, field of view 80)
+	tanX = 0.8391;	// tan(40): 4:3, and 16:9 stretched keeps the 4:3 width
+	tanY = 0.6293;	// tan(40) * 3/4
+	if (self.pers["streamerSystem_xrayAspect"] == 1)
+		tanX = 1.1188;	// 16:9 wide screen (Hor+): the height of 4:3 kept, width 16/9
+	else if (self.pers["streamerSystem_xrayAspect"] == 2)
+		tanY = 0.4720;	// 16:9 stretched by the vanilla game: width of 4:3 kept, height 9/16
+	focalX = 320 / tanX;
+	focalY = 240 / tanY;
+
+	if (camera == self)
+		eye = self.origin + (0, 0, 8);
+	else
+		eye = camera maps\mp\gametypes\global\player::getEyeOrigin();
+
+	yaw = camera.angles[1];
+	fwd = (cos(yaw), sin(yaw), 0);
+	right = (sin(yaw), -1 * cos(yaw), 0);
+
+	shown = [];
+	closest = undefined;
+	closestDist = 0;
+
+	players = getentarray("player", "classname");
+	for (i = 0; i < players.size; i++)
+	{
+		player = players[i];
+		if (player == self || player == camera)
+			continue;
+		if (player.sessionstate != "playing")
+			continue;
+		if (!isDefined(player.pers["team"]) || (player.pers["team"] != "allies" && player.pers["team"] != "axis"))
+			continue;
+		// following: enemies of the followed player only (DM: everybody)
+		if (camera != self && camera.sessionteam == player.sessionteam && player.sessionteam != "none")
+			continue;
+
+		rel = player.origin - eye;
+		depth = vectordot(rel, fwd);
+		if (depth < 24)
+			continue;	// behind the camera
+
+		sx = 320 + vectordot(rel, right) / depth * focalX;
+		if (sx < -40 || sx > 680)
+			continue;	// out of the screen sides
+		syFeet = 240 - rel[2] / depth * focalY;
+
+		// the silhouettes fill 80 of their 128 pixels for a standing player (~72 units),
+		// feet at 111/128: size and anchor follow from that
+		size = 115 * focalY / depth;
+		if (size < 12) size = 12;
+		if (size > 480) size = 480;
+		y = syFeet + 0.133 * size;
+
+		num = player getEntityNumber();
+		shown[num] = true;
+
+		hud = self.streamerSystem_XRAY_huds[num];
+		if (!isDefined(hud))
+		{
+			hud = maps\mp\gametypes\global\_global::newClientHudElem2(self);
+			hud.archived = false;
+			hud.alignX = "center";
+			hud.alignY = "bottom";
+			hud.sort = -1;
+			hud.alpha = 0;
+			hud.shaderNow = "";
+			hud.pxNow = 0;
+			hud.visibleNow = false;
+			self.streamerSystem_XRAY_huds[num] = hud;
+			self.streamerSystem_XRAY_count++;
+		}
+
+		// stance from the head height, facing relative to the camera
+		stance = player maps\mp\gametypes\global\player::getStance();
+		toCam = vectortoangles((eye[0] - player.origin[0], eye[1] - player.origin[1], 0));
+		angle = player.angles[1] - toCam[1];
+		while (angle > 180) angle -= 360;
+		while (angle < -180) angle += 360;
+		if (angle > 135 || angle < -135)	facing = "back";
+		else if (angle > 45)			facing = "left";
+		else if (angle < -45)			facing = "right";
+		else					facing = "front";
+		shader = "images/stance_" + stance + "_" + facing + ".dds";
+
+		isize = (int)size;
+		if (hud.shaderNow != shader || hud.pxNow != isize)
+		{
+			hud setShader(shader, isize, isize);
+			hud.shaderNow = shader;
+			hud.pxNow = isize;
+		}
+		hud.x = sx;
+		hud.y = y;
+
+		// team colour, going red with the damage taken
+		if (player.pers["team"] == "allies")	color = (0.45, 0.65, 1.00);
+		else					color = (1.00, 0.45, 0.35);
+		if (player.health < 100 && player.health > 0)
+		{
+			f = player.health / 100;
+			color = (color[0] + (1 - color[0]) * (1 - f), color[1] * f, color[2] * f);
+		}
+		if (hud.color != color)
+			hud.color = color;
+
+		// behind a wall: strong; in plain sight: faint, the model itself is visible
+		if (checkSight || hud.alpha == 0)
+			hud.visibleNow = camera maps\mp\gametypes\global\player::isPlayerInSight(player);
+		alpha = 0.85;
+		if (hud.visibleNow)
+			alpha = 0.3;
+		if (hud.alpha != alpha)
+			hud.alpha = alpha;
+
+		// flying: the player nearest to the screen centre is the one [attack] will follow
+		if (camera == self && depth < 1500 && sx > 160 && sx < 480)
+		{
+			d = (sx - 320) * (sx - 320) + (y - size / 2 - 240) * (y - size / 2 - 240);
+			if (!isDefined(closest) || d < closestDist)
 			{
-				dmg = (player.health / 100);
-				color = (color[0] + (1-color[0]) * (1-dmg), color[1] * dmg, color[2] * dmg);
+				closest = player;
+				closestDist = d;
 			}
-			self.color = color;
 		}
 	}
+
+	// hide the markers of players not shown this frame, drop those who left
+	for (i = 0; i < level.streamerSystem_maxClients; i++)
+	{
+		hud = self.streamerSystem_XRAY_huds[i];
+		if (!isDefined(hud) || isDefined(shown[i]))
+			continue;
+		ent = getEntByNum(i);
+		if (!isDefined(ent) || !isPlayer(ent))
+		{
+			hud destroy();
+			self.streamerSystem_XRAY_huds[i] = undefined;
+			self.streamerSystem_XRAY_count--;
+		}
+		else if (hud.alpha != 0)
+			hud.alpha = 0;
+	}
+
+	self.streamerSystem_playerToFollow = closest;
 }

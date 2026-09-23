@@ -16,6 +16,10 @@ init()
 	maps\mp\gametypes\global\_global::addEventListener("onCvarChanged", ::onCvarChanged);
 
 	maps\mp\gametypes\global\_global::registerCvar("scr_streamer_limit", "INT", 1, 0, 1);
+	maps\mp\gametypes\global\_global::registerCvar("scr_streamer_lock", "BOOL", true);	// anti-ghosting, see canJoinStreamer / canJoinPlayingTeam
+	maps\mp\gametypes\global\_global::registerCvar("scr_streamer_radar", "BOOL", true);	// radar of the streamer overlay
+	maps\mp\gametypes\global\_global::registerCvar("scr_streamer_xray", "BOOL", true);	// XRAY of the streamer overlay
+	maps\mp\gametypes\global\_global::registerCvarEx("I", "scr_streamer_allow", "STRING", "");	// "" = anybody, else names or GUIDs allowed to stream, comma separated
 
 	maps\mp\gametypes\global\_global::addEventListener("onConnected",  	::onConnected);
 	maps\mp\gametypes\global\_global::addEventListener("onSpawnedPlayer",  	::onSpawnedPlayer);
@@ -42,6 +46,10 @@ onCvarChanged(cvar, value, isRegisterTime)
 	switch(cvar)
 	{
 		case "scr_streamer_limit": 		level.scr_streamer_limit = value; return true;
+		case "scr_streamer_lock": 		level.scr_streamer_lock = value; return true;
+		case "scr_streamer_radar": 		level.scr_streamer_radar = value; return true;
+		case "scr_streamer_xray": 		level.scr_streamer_xray = value; return true;
+		case "scr_streamer_allow": 		level.scr_streamer_allow = value; return true;
 	}
 	return false;
 }
@@ -89,6 +97,10 @@ onConnectedAll()
 // Called even if streamer system is disabled
 onSpawnedPlayer()
 {
+	// Anti-ghosting: this player takes part in the live match on this map
+	if (isMatchLive())
+		self.pers["streamerSystem_playedToken"] = streamerMapToken();
+
 	self exit();
 }
 
@@ -117,11 +129,139 @@ isStreamerLimitReached()
 	return count >= level.scr_streamer_limit;
 }
 
+
+/*
+	Streamer mode gate. The ONLY check that gives access to the streamer overlay: top bar,
+	radar, XRAY and every streamersystem_* menu response. It is decided on the server from
+	server state only - no client cvar or console command can turn it on (a hand-typed
+	"mr ..." menu response lands in onMenuResponse, which asks this first).
+*/
+isStreamerModeEnabled(player)
+{
+	if (!isDefined(player) || !isPlayer(player))
+		return false;
+	if (!level.streamerSystem)
+		return false;
+	if (!isDefined(player.pers["team"]) || player.pers["team"] != "streamer")
+		return false;
+	// the menu trick briefly moves the streamer to team "none", never to a playing team
+	if (player.sessionteam == "allies" || player.sessionteam == "axis")
+		return false;
+	if (!isStreamerAllowed(player))
+		return false;
+	return true;
+}
+
+// scr_streamer_allow: "" = anybody, else colour-less names or GUIDs, comma separated.
+// Cached per player: recomputed only when his name or the list changes.
+isStreamerAllowed(player)
+{
+	if (!isDefined(level.scr_streamer_allow) || level.scr_streamer_allow == "")
+		return true;
+
+	key = player.name + "|" + level.scr_streamer_allow;
+	if (isDefined(player.streamerSystem_allowKey) && player.streamerSystem_allowKey == key)
+		return player.streamerSystem_allowResult;
+
+	name = maps\mp\gametypes\global\_global::toLower(maps\mp\gametypes\global\_global::removeColorsFromString(player.name));
+	guid = player getGuid() + "";
+	list = maps\mp\gametypes\global\_global::splitString(level.scr_streamer_allow, ",");
+
+	allowed = false;
+	for (i = 0; i < list.size; i++)
+	{
+		entry = maps\mp\gametypes\global\_global::toLower(trimSpaces(list[i]));
+		if (entry == "")
+			continue;
+		if (entry == name || (guid != "0" && guid != "" && entry == guid))
+		{
+			allowed = true;
+			break;
+		}
+	}
+
+	player.streamerSystem_allowKey = key;
+	player.streamerSystem_allowResult = allowed;
+	return allowed;
+}
+
+trimSpaces(s)
+{
+	from = 0;
+	to = s.size;
+	while (from < to && s[from] == " ") from++;
+	while (to > from && s[to - 1] == " ") to--;
+	return maps\mp\gametypes\global\_global::getsubstr(s, from, to);
+}
+
+// A round is being played for real (not ready-up, bash or the end of the map)
+isMatchLive()
+{
+	if (isDefined(level.in_readyup) && level.in_readyup)
+		return false;
+	if (isDefined(level.in_bash) && level.in_bash)
+		return false;
+	if (isDefined(game["state"]) && game["state"] == "intermission")
+		return false;
+	return true;
+}
+
+// Identifies this map load (game[] survives the round restarts, not the map change)
+streamerMapToken()
+{
+	if (!isDefined(game["streamerSystem_mapToken"]))
+		game["streamerSystem_mapToken"] = level.mapname + "_" + getTime() + "_" + randomInt(1000000);
+	return game["streamerSystem_mapToken"];
+}
+
+// Anti-ghosting 1/2: who took part in the live match on this map cannot switch to the
+// streamer overlay (radar/XRAY) until the next map. Self is the player asking.
+canJoinStreamer()
+{
+	if (!level.streamerSystem)
+		return true;	// the streamer team is then a plain spectator team
+
+	if (!isStreamerAllowed(self))
+	{
+		self iprintln("^1Streamer mode: you are not on this server's streamer list.");
+		return false;
+	}
+
+	if (level.scr_streamer_lock && isDefined(self.pers["streamerSystem_playedToken"]) && self.pers["streamerSystem_playedToken"] == streamerMapToken())
+	{
+		self iprintln("^1Streamer mode is locked for you on this map: you played in this match.");
+		return false;
+	}
+	return true;
+}
+
+// Anti-ghosting 2/2: who watched the live match with the overlay cannot join a playing
+// team while the match is live on this map (ready-up and next map are fine).
+canJoinPlayingTeam()
+{
+	if (!level.streamerSystem || !level.scr_streamer_lock)
+		return true;
+
+	if (isDefined(self.pers["streamerSystem_watchedToken"]) && self.pers["streamerSystem_watchedToken"] == streamerMapToken() && isMatchLive())
+	{
+		self iprintln("^1You watched this match as streamer: join a team during ready-up or on the next map.");
+		return false;
+	}
+	return true;
+}
+
+// Called by the overlay loop while the streamer watches
+markWatched()
+{
+	if (isMatchLive())
+		self.pers["streamerSystem_watchedToken"] = streamerMapToken();
+}
+
 onSpawnedStreamer()
 {
 	self endon("disconnect");
 
-	if (self.pers["team"] == "streamer")
+	if (isStreamerModeEnabled(self))
 	{
 		// calls UpdatePlayerCvars from matchinfo
 		self thread updateStreamerCvars();
@@ -143,6 +283,8 @@ onSpawnedStreamer()
 		// wait 1;
 		// XRAY
 		self thread maps\mp\gametypes\_streamer_xray::XRAY_Loop();
+		// Radar
+		self thread maps\mp\gametypes\_streamer_radar::Radar_Loop();
 		// wait 1;
 
 		self thread cinematicMove();
@@ -307,7 +449,8 @@ Return true to indicate that menu response was handled in this function
 onMenuResponse(menu, response)
 {
 	logprint("_streamer:: onMenuResponse menu=" + menu + ", response=" + response + "\n");
-	if (self.pers["team"] != "streamer")
+	// A client can send any menu response by hand: the server-side gate decides
+	if (!isStreamerModeEnabled(self))
 		return;
 	logprint("_streamer:: in streamer team\n");
 
@@ -467,6 +610,20 @@ onMenuResponse(menu, response)
 		else if (response == "streamersystem_hit")
 		{
 			self thread maps\mp\gametypes\_streamer_damage::toggle();
+			return true;
+		}
+
+		// M
+		else if (response == "streamersystem_radar")
+		{
+			self thread maps\mp\gametypes\_streamer_radar::toggle();
+			return true;
+		}
+
+		// V
+		else if (response == "streamersystem_aspect")
+		{
+			self thread maps\mp\gametypes\_streamer_xray::toggleAspect();
 			return true;
 		}
 
@@ -770,8 +927,8 @@ player_loop()
 	{
 		wait level.frame;
 
-		// End this thread if player join team
-		if (self.pers["team"] != "streamer")
+		// End this thread if player join team (or lost the streamer mode)
+		if (!isStreamerModeEnabled(self))
 		{
 			self streamerSystemTurnOff();
 			self streamerSystemExit();
@@ -980,6 +1137,10 @@ streamerSystemExit()
 {
 	self thread maps\mp\gametypes\_streamer_hud::keys_hide();
 	self thread maps\mp\gametypes\_streamer_hud::HUD_ActivateStreamerSystem_hide();
+
+	// Overlay hudelems go now, not at the next tick of their loops
+	self maps\mp\gametypes\_streamer_radar::Radar_Stop();
+	self maps\mp\gametypes\_streamer_xray::XRAY_Stop();
 }
 
 

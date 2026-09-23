@@ -221,6 +221,8 @@ hide_all()
 	self hide_matchinfo();
 	self hide_player_progress();
 	self hide_messages();
+	self hide_top_header();
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_radar", "0");
 
 //3	self setClientCvarIfChanged("ui_streamersystem_settings", "");
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_settings", "");
@@ -251,7 +253,19 @@ hide_player_boxes()
 //3		self setClientCvarIfChanged("ui_streamersystem_team2_player"+i+"_icons", "");
 		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team1_player"+i+"_icons", "");
 		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team2_player"+i+"_icons", "");
+
+		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team1_player"+i+"_hp", "");
+		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team2_player"+i+"_hp", "");
 	}
+}
+
+hide_top_header()
+{
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_name1", "");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_name2", "");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_score1", "");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_score2", "");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_info", "");
 }
 
 hide_matchinfo()
@@ -389,11 +403,18 @@ settingsChangedForPlayer(what) // "", auto, xray, damage
 		if (self.pers["streamerSystem_damageInfo"])	settingsStatus += "Hits: ^2ON    ^7";
 		else						settingsStatus += "Hits: ^1OFF   ^7";
 	}
+	if ((self.pers["streamerSystem_keysVisible"] || what == "radar") && isDefined(self.pers["streamerSystem_radar"]))
+	{
+		if (self.pers["streamerSystem_radar"])		settingsStatus += "Radar: ^2ON    ^7";
+		else						settingsStatus += "Radar: ^1OFF   ^7";
+	}
+	if (self.pers["streamerSystem_keysVisible"] || what == "aspect")
+		settingsStatus += "XRAY view: ^3" + maps\mp\gametypes\_streamer_xray::aspectName() + "^7";
 
 //3	self setClientCvarIfChanged("ui_streamersystem_settings", settingsStatus);
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_settings", settingsStatus);
 
-	if (self.pers["streamerSystem_keysVisible"] == false && (what == "auto" || what == "xray" || what == "damage"))
+	if (self.pers["streamerSystem_keysVisible"] == false && (what == "auto" || what == "xray" || what == "damage" || what == "radar" || what == "aspect"))
 	{
 		wait level.fps_multiplier * 1;
 
@@ -408,6 +429,10 @@ HUD_PlayerBoxes_Loop()
 {
 	self endon("disconnect");
 
+	// Started on every streamer spawn: keep a single instance
+	self notify("streamerSystem_boxes_loop");
+	self endon("streamerSystem_boxes_loop");
+
 	wait level.frame;
 	//wait 1;
 
@@ -418,12 +443,15 @@ HUD_PlayerBoxes_Loop()
 	{
 		wait level.fps_multiplier * 0.1;
 
-		if (self.pers["team"] != "streamer")
+		if (!maps\mp\gametypes\_streamer::isStreamerModeEnabled(self))
 		{
 			// Player left spectators, hide hud elements
 			self thread hide_all();
 			return;
 		}
+
+		// Anti-ghosting: remember that this player watched the live match
+		self maps\mp\gametypes\_streamer::markWatched();
 
 		// If match info is enabled, ensure teams are in correct sides
 		teamLeft = "allies";
@@ -436,6 +464,12 @@ HUD_PlayerBoxes_Loop()
 				teamRight = "allies";
 			}
 		}
+
+		// Top bar slots: a player keeps his box (and radar dot) for the whole map, dead or alive
+		level.streamerSystem_boxesLeft_players = updateSlots("left", teamLeft);
+		level.streamerSystem_boxesRight_players = updateSlots("right", teamRight);
+
+		self update_top_header(teamLeft, teamRight);
 
 		allies_color = "^4"; // blue
 		axis_color = "^1"; // red
@@ -599,18 +633,15 @@ HUD_PlayerBoxes_Loop()
 			continue;
 		}
 
-		level.streamerSystem_boxesLeft_players = getPlayersByTeam(teamLeft);
-		level.streamerSystem_boxesRight_players = getPlayersByTeam(teamRight);
-
-		// Fill bars
+		// Fill bars (slots may have holes: a player who left frees his box, nobody moves)
 		for(r = 0; r < 5; r++)
 		{
-			if (r < level.streamerSystem_boxesLeft_players.size)
+			if (isDefined(level.streamerSystem_boxesLeft_players[r]))
 				self fill_box(r, "left", teamLeft, level.streamerSystem_boxesLeft_players[r]);
 			else
 				self unfill_box(r, "left");
 
-			if (r < level.streamerSystem_boxesRight_players.size)
+			if (isDefined(level.streamerSystem_boxesRight_players[r]))
 				self fill_box(r, "right", teamRight, level.streamerSystem_boxesRight_players[r]);
 			else
 				self unfill_box(r, "right");
@@ -723,17 +754,12 @@ followPlayerByNum(num)
 	if (num < 1 || num > 10) return;
 
 	player = undefined;
+	// slots can have holes, index them directly
 	if (num >= 1 && num <= 5)
-	{
-		if ((num - 1) < level.streamerSystem_boxesLeft_players.size)
-			player = level.streamerSystem_boxesLeft_players[num - 1];
-	}
+		player = level.streamerSystem_boxesLeft_players[num - 1];
 
 	if (num >= 6 && num <= 10)
-	{
-		if ((num - 6) < level.streamerSystem_boxesRight_players.size)
-			player = level.streamerSystem_boxesRight_players[num - 6];
-	}
+		player = level.streamerSystem_boxesRight_players[num - 6];
 
 	if (isDefined(player))
 	{
@@ -750,6 +776,112 @@ followPlayerByNum(num)
 		self iprintln("^3Player " + num + " does not exists");
 }
 
+
+/*
+	Sticky slots of one side of the top bar. game[] survives the round restarts, so a player
+	keeps his slot (box, number key, radar dot) for the whole map: dead players stay in place
+	(greyed by the menu) and are alive again next round, nobody is reordered. A player who
+	leaves the team frees his slot, a newcomer takes the first free one. Stored as client
+	numbers, never as entities (entities do not survive the round restart).
+	Returns slot -> player, undefined for an empty slot.
+*/
+updateSlots(side, team)
+{
+	key = "streamerSystem_slots_" + side;
+	if (!isDefined(game[key]))
+	{
+		empty = [];
+		for (i = 0; i < 5; i++)
+			empty[i] = -1;
+		game[key] = empty;
+	}
+	slots = game[key];
+
+	players = getPlayersByTeam(team);
+	result = [];
+
+	// players still in this team keep their slot
+	for (i = 0; i < 5; i++)
+	{
+		if (slots[i] == -1)
+			continue;
+		for (p = 0; p < players.size; p++)
+		{
+			if (players[p] getEntityNumber() == slots[i])
+			{
+				result[i] = players[p];
+				break;
+			}
+		}
+		if (!isDefined(result[i]))
+			slots[i] = -1;
+	}
+
+	// newcomers take the first free slot (a 6th player has no box)
+	for (p = 0; p < players.size; p++)
+	{
+		num = players[p] getEntityNumber();
+		placed = false;
+		for (i = 0; i < 5; i++)
+			if (slots[i] == num)
+				placed = true;
+		if (placed)
+			continue;
+		for (i = 0; i < 5; i++)
+		{
+			if (slots[i] == -1)
+			{
+				slots[i] = num;
+				result[i] = players[p];
+				break;
+			}
+		}
+	}
+
+	game[key] = slots;
+	return result;
+}
+
+// Team names, scores and round state in the middle of the top bar
+update_top_header(teamLeft, teamRight)
+{
+	info = "";
+	if (isDefined(level.in_readyup) && level.in_readyup)
+		info = "READY-UP";
+	else if (isDefined(level.in_bash) && level.in_bash)
+		info = "BASH";
+	else if (game["state"] == "intermission")
+		info = "FINAL";
+	else if (level.gametype == "sd" && isDefined(level.bombplanted) && level.bombplanted)
+		info = "^1BOMB PLANTED";
+	else if (isDefined(level.in_strattime) && level.in_strattime)
+		info = "STRAT TIME";
+	else if (isDefined(game["round"]))
+		info = "ROUND " + game["round"];
+
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_name1", top_team_name(teamLeft));
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_name2", top_team_name(teamRight));
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_score1", getTeamScore(teamLeft));
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_score2", getTeamScore(teamRight));
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_top_info", info);
+}
+
+top_team_name(team)
+{
+	if (isDefined(game["scr_matchinfo"]) && game["scr_matchinfo"] > 0)
+	{
+		for (t = 1; t <= 2; t++)
+		{
+			side = game["match_team" + t + "_side"];
+			name = game["match_team" + t + "_name"];
+			if (isDefined(side) && side == team && isDefined(name) && name != "")
+				return maps\mp\gametypes\global\_global::getsubstr(name, 0, 28);
+		}
+	}
+	if (team == "allies")
+		return "ALLIES";
+	return "AXIS";
+}
 
 getPlayersByTeam(teamname)
 {
@@ -794,6 +926,8 @@ fill_box(index, barSide, teamname, player)
 		score = player.score;
 		deaths = player.deaths;
 		playerHealth = player.health;
+		if (player.sessionstate != "playing")
+			playerHealth = 0;	// dead this round: whatever health the spectator state keeps
 		weapon1 = player getweaponslotweapon("primary");
     	weapon2 = player getweaponslotweapon("primaryb");
 		weapon1 = maps\mp\gametypes\_weapons::getWeaponName2(weapon1);
@@ -868,7 +1002,7 @@ fill_box(index, barSide, teamname, player)
 	{
 		if (isDefined(stats))
 		{
-			weapon_text = "Assists: " + stats["assists"] + "   Plants: " + stats["plants"] + "   Defuses: " + stats["defuses"];
+			weapon_text = "A " + stats["assists"] + "  P " + stats["plants"] + "  D " + stats["defuses"];	// fits a top bar box
 		}
 	}
 	else if (playerHealth > 0)
@@ -921,26 +1055,38 @@ fill_box(index, barSide, teamname, player)
 		else					kills_added = "^1" + roundKills + "^7";
 	}
 
-	// Player name
+	// Player name (the box draws its number key itself, the name is cut to fit the box)
 	name = "";
-	if (self.pers["streamerSystem_keysVisible"])
-	{
-		if (barSide == "left")	name += "" + (index + 1) + ":  ";
-		else if (index == 4)	name += "0:  "; // 10
-		else			name += "" + (index + 6) + ":  ";
-	}
 
 	// Player existing and playerIsReady
 	if (level.in_readyup && isDefined(player))
 	{
-		if (playerIsReady) 	name += "^2o^7  ";
-		else		 	name += "^1o^7  ";
+		if (playerIsReady) 	name += "^2o^7 ";
+		else		 	name += "^1o^7 ";
 	}
 //3	name += removeColorsFromString(player.name);
 	if (isDefined(playerName))
-    	name += maps\mp\gametypes\global\_global::removeColorsFromString(playerName);
+	{
+		shortName = maps\mp\gametypes\global\_global::removeColorsFromString(playerName);
+		if (shortName.size > 10)
+			shortName = maps\mp\gametypes\global\_global::getsubstr(shortName, 0, 9) + ".";
+		name += shortName;
+	}
 	else
     	name += "No Player - Undefined Player";
+
+	// Exact HP: text + a 10-step bar ("" hides the bar)
+	hp = "";
+	hptext = "";
+	if (playerHealth > 0)
+	{
+		hp = "" + (int)((playerHealth + 9) / 10);
+		if (playerHealth > 100) hp = "10";
+		hptext = "" + playerHealth;
+		if (playerHealth < 30) hptext = "^1" + hptext;
+	}
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hp",		hp);
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hptext",	hptext);
 //k	name += maps\mp\gametypes\global\_global::removeColorsFromString(playerName);
 //3	self setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_health",		health);
 //3	self setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_name",		name);
@@ -985,6 +1131,8 @@ unfill_box(index, barSide)
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_round_kills", "");
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_health", "");
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_icons", "");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hp", "");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_team"+teamNum+"_player"+index+"_hptext", "");
 
 //k	wait .10;
 //F	wait level.fps_multiplier * 0.1;

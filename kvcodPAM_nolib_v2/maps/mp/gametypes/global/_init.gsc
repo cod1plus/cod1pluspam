@@ -93,6 +93,7 @@ InitModules()
 	thread maps\mp\gametypes\_streamer_auto::init(); // depends on readyup
 	thread maps\mp\gametypes\_streamer_hud::init(); // depends on readyup, matchinfo
 	thread maps\mp\gametypes\_streamer_xray::init(); // depends on readyup, matchinfo
+	thread maps\mp\gametypes\_streamer_radar::init(); // depends on _spectating (level.streamerSystem)
 	thread maps\mp\gametypes\_streamer_damage::init(); // depends on readyup
 	thread maps\mp\gametypes\_streamer_killcam::init(); // depends on _streamer_auto
 	thread maps\mp\gametypes\_archive::init(); // depends on streamer_system and killcam

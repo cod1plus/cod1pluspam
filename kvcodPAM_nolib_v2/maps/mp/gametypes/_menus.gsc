@@ -395,6 +395,14 @@ onMenuResponse(menu, response)
 	{
 		logprint("_menus:: choosing menu_team and it's not an intermission at onMenuResponse, response=" + response + "\n");
 		teamBefore = self.pers["team"];
+
+		// Anti-ghosting: a streamer who watched the live match cannot join it (see _streamer.gsc)
+		if ((response == "allies" || response == "axis" || response == "autoassign") && !self maps\mp\gametypes\_streamer::canJoinPlayingTeam())
+		{
+			self openMenu(game["menu_team"]);
+			return true;
+		}
+
 		switch(response)
 		{
 		case "allies":
@@ -438,6 +446,11 @@ onMenuResponse(menu, response)
 			{
 				self openMenu(game["menu_team"]);
 				self thread printTeamChanged(self.name + " Streamer limit reached", "");
+			}
+			else if (!self maps\mp\gametypes\_streamer::canJoinStreamer())
+			{
+				// not on the streamer list, or played in this match (anti-ghosting)
+				self openMenu(game["menu_team"]);
 			}
 			else
 			{

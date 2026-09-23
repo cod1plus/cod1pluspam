@@ -1071,6 +1071,140 @@ itemDef \
 
 
 
+/*
+	Top bar of the streamer overlay: one box per player, 56x32, CS:GO caster style.
+	Driven by the same cvars as the old side bars (_streamer_hud.gsc fill_box):
+		_health   "" empty slot | "0" dead | "<10|50|80|100>_<allies|axis>" alive, "_" suffix = followed
+		_hp       "1".."10" HP bar steps ("" = no bar)      _hptext  exact HP
+		_name     name (cut to the box)   _weapon  weapon(s)   _icons  grenades
+	23 items per box: 5 boxes + the header stay under the 128 items of a menu.
+*/
+#define STREAMERSYSTEM_TOP_ALIVE { "10_allies"; "10_axis"; "50_allies"; "50_axis"; "80_allies"; "80_axis"; "100_allies"; "100_axis"; "10_allies_"; "10_axis_"; "50_allies_"; "50_axis_"; "80_allies_"; "80_axis_"; "100_allies_"; "100_axis_" }
+#define STREAMERSYSTEM_TOP_ALLIES { "10_allies"; "50_allies"; "80_allies"; "100_allies"; "10_allies_"; "50_allies_"; "80_allies_"; "100_allies_" }
+#define STREAMERSYSTEM_TOP_AXIS { "10_axis"; "50_axis"; "80_axis"; "100_axis"; "10_axis_"; "50_axis_"; "80_axis_"; "100_axis_" }
+#define STREAMERSYSTEM_TOP_DEAD { "0"; "0_" }
+#define STREAMERSYSTEM_TOP_FOLLOWED { "0_"; "10_allies_"; "10_axis_"; "50_allies_"; "50_axis_"; "80_allies_"; "80_axis_"; "100_allies_"; "100_axis_" }
+
+#define STREAMERSYSTEM_TOPBOX_RECT(cvarsuffix, x_offset, y_offset, w, h, ox, oy, bc, list) \
+itemDef \
+{ \
+	style		WINDOW_STYLE_FILLED \
+	rect		x_offset y_offset w h \
+	origin		ox oy \
+	backcolor	bc \
+	visible		1 \
+	cvartest	cvarsuffix \
+	showcvar	list \
+	decoration \
+}
+
+#define STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, step, w, bc) \
+itemDef \
+{ \
+	style		WINDOW_STYLE_FILLED \
+	rect		x_offset y_offset w 3 \
+	origin		18 25 \
+	backcolor	bc \
+	visible		1 \
+	cvartest	cvarprefix "_hp" \
+	showcvar	{ step } \
+	decoration \
+}
+
+#define STREAMERSYSTEM_TOPBOX_TEXT(cvarprefix, cvarsuffix, x_offset, y_offset, ox, oy, aligny, scale, fc, align, list) \
+itemDef \
+{ \
+	rect			x_offset y_offset 0 0 \
+	origin			ox oy \
+	type			ITEM_TYPE_TEXT \
+	visible			1 \
+	forecolor		fc \
+	textfont		UI_FONT_NORMAL \
+	textscale		scale \
+	textalign		align \
+	textaligny		aligny \
+	textstyle		ITEM_TEXTSTYLE_SHADOWED \
+	cvar			cvarprefix cvarsuffix \
+	cvartest		cvarprefix "_health" \
+	showcvar		list \
+	decoration \
+}
+
+#define STREAMERSYSTEM_TOPBOX_ICON(cvarprefix, cvarsuffix, x_offset, y_offset, w, h, ox, oy, image, list) \
+itemDef \
+{ \
+	style		WINDOW_STYLE_FILLED \
+	rect		x_offset y_offset w h \
+	origin		ox oy \
+	backcolor	1 1 1 .75 \
+	visible		1 \
+	background	image \
+	cvartest	cvarprefix cvarsuffix \
+	showcvar	list \
+	decoration \
+}
+
+#define ITEM_STREAMERSYSTEM_TOPBOX(cvarprefix, num, x_offset, y_offset) \
+STREAMERSYSTEM_TOPBOX_RECT(cvarprefix "_health", x_offset, y_offset, 58, 34, -1, -1, .95 .95 .95 .95, STREAMERSYSTEM_TOP_FOLLOWED) \
+STREAMERSYSTEM_TOPBOX_RECT(cvarprefix "_health", x_offset, y_offset, 56, 32, 0, 0, .10 .18 .42 .92, STREAMERSYSTEM_TOP_ALLIES) \
+STREAMERSYSTEM_TOPBOX_RECT(cvarprefix "_health", x_offset, y_offset, 56, 32, 0, 0, .42 .07 .07 .92, STREAMERSYSTEM_TOP_AXIS) \
+STREAMERSYSTEM_TOPBOX_RECT(cvarprefix "_health", x_offset, y_offset, 56, 32, 0, 0, .09 .09 .09 .85, STREAMERSYSTEM_TOP_DEAD) \
+STREAMERSYSTEM_TOPBOX_RECT(cvarprefix "_health", x_offset, y_offset, 24, 3, 18, 25, 0 0 0 .55, STREAMERSYSTEM_TOP_ALIVE) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "1", 2, .95 .25 .20 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "2", 5, .95 .25 .20 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "3", 7, 1 .72 .25 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "4", 10, 1 .72 .25 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "5", 12, 1 .72 .25 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "6", 14, .86 .96 .86 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "7", 17, .86 .96 .86 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "8", 19, .86 .96 .86 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "9", 22, .86 .96 .86 1) \
+STREAMERSYSTEM_TOPBOX_HP(cvarprefix, x_offset, y_offset, "10", 24, .86 .96 .86 1) \
+STREAMERSYSTEM_TOPBOX_TEXT(cvarprefix, "_name", x_offset, y_offset, 3, 0, 10, .16, 1 1 1 1, ITEM_ALIGN_LEFT, STREAMERSYSTEM_TOP_ALIVE) \
+STREAMERSYSTEM_TOPBOX_TEXT(cvarprefix, "_name", x_offset, y_offset, 3, 0, 10, .16, .55 .55 .55 1, ITEM_ALIGN_LEFT, STREAMERSYSTEM_TOP_DEAD) \
+STREAMERSYSTEM_TOPBOX_TEXT(cvarprefix, "_weapon", x_offset, y_offset, 3, 11, 8, .12, .85 .85 .85 .85, ITEM_ALIGN_LEFT, STREAMERSYSTEM_TOP_ALIVE) \
+STREAMERSYSTEM_TOPBOX_TEXT(cvarprefix, "_hptext", x_offset, y_offset, 3, 21, 8, .13, 1 1 1 1, ITEM_ALIGN_LEFT, STREAMERSYSTEM_TOP_ALIVE) \
+STREAMERSYSTEM_TOPBOX_ICON(cvarprefix, "_health", x_offset, y_offset, 9, 9, 4, 21, "gfx/hud/death_suicide.tga", STREAMERSYSTEM_TOP_DEAD) \
+STREAMERSYSTEM_TOPBOX_ICON(cvarprefix, "_icons", x_offset, y_offset, 7, 6, 43, 24, "gfx/icons/hud@us_grenade.tga", { "grenade"; "grenade_smoke"; "grenade2"; "grenade2_smoke" }) \
+STREAMERSYSTEM_TOPBOX_ICON(cvarprefix, "_icons", x_offset, y_offset, 7, 6, 49, 24, "gfx/icons/hud@us_grenade.tga", { "grenade2"; "grenade2_smoke" }) \
+itemDef \
+{ \
+	rect			x_offset y_offset 0 0 \
+	origin			54 0 \
+	type			ITEM_TYPE_TEXT \
+	visible			1 \
+	forecolor		1 1 1 .45 \
+	textfont		UI_FONT_NORMAL \
+	textscale		.11 \
+	textalign		ITEM_ALIGN_RIGHT \
+	textaligny		8 \
+	text			num \
+	cvartest		cvarprefix "_health" \
+	hidecvar		{ "" } \
+	decoration \
+}
+
+#define ITEM_STREAMERSYSTEM_TOPTEXT(cvarStr, x, y, fontsize, text_align, fc) \
+itemDef \
+{ \
+	visible			1 \
+	rect			0 0 0 0 \
+	origin			x y \
+	forecolor		fc \
+	type			ITEM_TYPE_TEXT \
+	textfont		UI_FONT_NORMAL \
+	textscale		fontsize \
+	textstyle		ITEM_TEXTSTYLE_SHADOWED \
+	textalign		text_align \
+	cvar			cvarStr \
+	cvartest		"ui_streamersystem_top_name1" \
+	hidecvar		{ "" } \
+	decoration \
+}
+
+
+
+
 #define ITEM_STREAMERSYSTEM_KEY(textstring, x, y, fontSize, cvarStr) \
 itemDef \
 { \
