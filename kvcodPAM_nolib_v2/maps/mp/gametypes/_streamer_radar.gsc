@@ -9,8 +9,8 @@
 		1 background + 10 player dots + bombsite A + bombsite B + planted bomb = 14
 	of the 31 non-archived hudelems a CoD1 client can display. Dot i is top-bar slot i
 	(1-5 left team, 6-0 right team, same order as the boxes), dots glide with moveOverTime.
-	The border is drawn by the streamer menu (cvar ui_streamersystem_radar): menus are drawn
-	above hudelems, so the dark background has to be a hudelem or it would cover the dots.
+	The box takes the shape of the map (up to 176x128 on screen) and its frame is drawn in the
+	map's image; the dark background has to be a hudelem because menus are drawn above hudelems.
 
 	CoD1 ships no overview image for any map, so the PAM brings its own: a top-down drawing of
 	each map generated from its BSP (tools/gen_radar_overviews.py -> gfx/streamer/overview/ and
@@ -56,7 +56,9 @@ init()
 	// Screen rectangle of the radar (640x480 virtual screen, same as the streamer menu)
 	level.streamerRadar_x = 4;
 	level.streamerRadar_y = 48;
-	level.streamerRadar_size = 128;
+	// largest radar box: a map takes its own shape inside it (Harbor 176x103, Ship 176x58...)
+	level.streamerRadar_maxW = 176.0;	// floats: int / int is an integer division in GSC
+	level.streamerRadar_maxH = 128.0;
 
 	maps\mp\gametypes\global\_global::addEventListener("onConnected", ::onConnected);
 }
@@ -98,6 +100,7 @@ getStreamerMapConfig(mapname)
 			c.x = stringToFloat(parts[0]);
 			c.y = stringToFloat(parts[1]);
 			c.span = stringToFloat(parts[2]);
+			c.spanY = c.span;
 			c.up = 90;
 			if (parts.size >= 4)
 				c.up = stringToFloat(parts[3]);
@@ -135,6 +138,9 @@ radarWindow()
 		win.x = c.x;
 		win.y = c.y;
 		win.span = c.span;
+		win.spanY = c.span;
+		if (isDefined(c.spanY))
+			win.spanY = c.spanY;
 		win.up = c.up;
 		if (isDefined(c.image) && isDefined(game["streamerRadar_image"]) && game["streamerRadar_image"] == c.image)
 			win.image = c.image;
@@ -183,11 +189,15 @@ radarWindow()
 		win.span = max(maxs[0] - mins[0], maxs[1] - mins[1]) * 1.15 + 600;
 		if (win.span < 1500)
 			win.span = 1500;
+		win.spanY = win.span;
 	}
 
 	win.upX = cos(win.up);
 	win.upY = sin(win.up);
-	win.scale = win.span / level.streamerRadar_size;	// world units per screen unit
+	// world units per screen unit: the window fills the largest box with its own shape
+	win.scale = max(win.span / level.streamerRadar_maxW, win.spanY / level.streamerRadar_maxH);
+	win.w = (int)(win.span / win.scale + 0.5);
+	win.h = (int)(win.spanY / win.scale + 0.5);
 	return win;
 }
 
@@ -204,19 +214,22 @@ worldToRadar(win, pos)
 	u = dx * win.upX + dy * win.upY;
 	r = dx * win.upY - dy * win.upX;
 
-	half = level.streamerRadar_size / 2;
-	limit = half - 5;
+	halfW = win.w / 2.0;
+	halfH = win.h / 2.0;
+	limitX = halfW - 5;
+	limitY = halfH - 5;
 	sx = r / win.scale;
 	sy = -1 * u / win.scale;
 
 	clamped = 0;
-	low = 0 - limit;	// no unary minus on a variable in CoD1 script
-	if (sx > limit) { sx = limit; clamped = 1; }
-	if (sx < low)   { sx = low;   clamped = 1; }
-	if (sy > limit) { sy = limit; clamped = 1; }
-	if (sy < low)   { sy = low;   clamped = 1; }
+	lowX = 0 - limitX;	// no unary minus on a variable in CoD1 script
+	lowY = 0 - limitY;
+	if (sx > limitX) { sx = limitX; clamped = 1; }
+	if (sx < lowX)   { sx = lowX;   clamped = 1; }
+	if (sy > limitY) { sy = limitY; clamped = 1; }
+	if (sy < lowY)   { sy = lowY;   clamped = 1; }
 
-	return (level.streamerRadar_x + half + sx, level.streamerRadar_y + half + sy, clamped);
+	return (level.streamerRadar_x + halfW + sx, level.streamerRadar_y + halfH + sy, clamped);
 }
 
 // 0 = nose up, then clockwise by 45 degrees
@@ -235,7 +248,8 @@ Radar_Create()
 {
 	x = level.streamerRadar_x;
 	y = level.streamerRadar_y;
-	s = level.streamerRadar_size;
+	w = self.streamerRadar_win.w;
+	h = self.streamerRadar_win.h;
 
 	self.streamerRadar_bg = maps\mp\gametypes\global\_global::newClientHudElem2(self);
 	self.streamerRadar_bg.archived = false;
@@ -247,12 +261,12 @@ Radar_Create()
 	if (isDefined(self.streamerRadar_win.image))
 	{
 		self.streamerRadar_bgAlpha = 0.9;		// the map drawing
-		self.streamerRadar_bg setShader(self.streamerRadar_win.image, s, s);
+		self.streamerRadar_bg setShader(self.streamerRadar_win.image, w, h);	// frame drawn in the image
 	}
 	else
 	{
 		self.streamerRadar_bgAlpha = 0.55;	// no drawing for this map: dark square
-		self.streamerRadar_bg setShader("black", s, s);
+		self.streamerRadar_bg setShader("black", w, h);
 	}
 	self.streamerRadar_bg.alpha = self.streamerRadar_bgAlpha;
 
@@ -263,8 +277,8 @@ Radar_Create()
 		dot.archived = false;
 		dot.alignX = "center";
 		dot.alignY = "middle";
-		dot.x = x + s / 2;
-		dot.y = y + s / 2;
+		dot.x = x + w / 2.0;
+		dot.y = y + h / 2.0;
 		dot.sort = 2;
 		dot.alpha = 0;
 		dot.shaderNow = "";

@@ -332,7 +332,7 @@ XRAY_Update(camera, checkSight)
 		else					color = (1.00, 0.45, 0.35);
 		if (player.health < 100 && player.health > 0)
 		{
-			f = player.health / 100;
+			f = player.health / 100.0;	// int / int would be an integer division (always 0)
 			color = (color[0] + (1 - color[0]) * (1 - f), color[1] * f, color[2] * f);
 		}
 		if (hud.color != color)

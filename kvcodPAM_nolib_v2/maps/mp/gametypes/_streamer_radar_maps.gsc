@@ -6,55 +6,56 @@ getOverview(mapname)
 {
 	switch (mapname)
 	{
-		case "mp_aim_a": return overview("mp_aim_a", -8, 104, 4296);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_aim_b": return overview("mp_aim_a", -8, 104, 4296);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_aim_r": return overview("mp_aim_a", -8, 104, 4296);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_beauville": return overview("mp_beauville", -470, -2376, 7406);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_blaoaim_a": return overview("mp_blaoaim_a", 1536, 1024, 2872);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_blaoaim_b": return overview("mp_blaoaim_a", 1536, 1024, 2872);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_blaoaim_r": return overview("mp_blaoaim_a", 1536, 1024, 2872);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_bocage": return overview("mp_bocage", -78, 5436, 15543);	// zzzzz_rPAM_p01_classics_v4.pk3
-		case "mp_brecourt": return overview("mp_brecourt", 56, -538, 11110);	// pak4.pk3
-		case "mp_burgundy": return overview("mp_burgundy", 424, 1102, 5377);	// zzzzz_rPAM_p09_bg_v3.pk3
-		case "mp_carentan": return overview("mp_carentan", 328, 1100, 6877);	// pak4.pk3
-		case "mp_chateau": return overview("mp_chateau", 478, 1080, 4915);	// pak4.pk3
-		case "mp_dawnville": return overview("mp_dawnville", 118, -16936, 7966);	// pak5.pk3
-		case "mp_dawnville_gg": return overview("mp_dawnville_gg", 620, -16384, 6440);	// zzzzz_rPAM_p05_cod2dw_v6.pk3
-		case "mp_dawnville_x": return overview("mp_dawnville_x", 118, -16936, 7966);	// zzzzz_rPAM_p02_curiousfox_v4.pk3
-		case "mp_depot": return overview("mp_depot", -1242, 220, 6993);	// pak5.pk3
-		case "mp_germantown": return overview("mp_germantown", 1620, -1512, 5507);	// zzzzz_rPAM_p01_classics_v4.pk3
-		case "mp_hanoi": return overview("mp_hanoi", 2368, -2504, 6405);	// zzzzz_rPAM_p04_hanoi_v3.pk3
-		case "mp_harbor": return overview("mp_harbor", -8780, -7456, 8731);	// pak5.pk3
-		case "mp_hurtgen": return overview("mp_hurtgen", 1302, -758, 14406);	// pak5.pk3
-		case "mp_kandanos": return overview("mp_kandanos", 368, 524, 8006);	// zzzzz_rPAM_p04_kandanos_v4.pk3
-		case "mp_neuville": return overview("mp_neuville", -14276, 3440, 6762);	// zzzzz_rPAM_p01_classics_v4.pk3
-		case "mp_pavlov": return overview("mp_pavlov", -9160, 10656, 6152);	// pak5.pk3
-		case "mp_pegasusday": return overview("mp_pegasusday", 759, -694, 6792);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_pegasusnight": return overview("mp_pegasusnight", 2544, 1156, 12123);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_pgaim_a": return overview("mp_pgaim_a", 1, -256, 3128);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_pgaim_r": return overview("mp_pgaim_a", 1, -256, 3128);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_powcamp": return overview("mp_powcamp", -26, 1864, 9654);	// pak5.pk3
-		case "mp_railyard": return overview("mp_railyard", -1168, 942, 6872);	// pak5.pk3
-		case "mp_railyard_x": return overview("mp_railyard", -1168, 942, 6872);	// zzzzz_rPAM_p02_curiousfox_v4.pk3
-		case "mp_rocket": return overview("mp_rocket", 10198, 3074, 10997);	// pak5.pk3
-		case "mp_ship": return overview("mp_ship", 4373, 40, 9248);	// pak5.pk3
-		case "mp_stalingrad": return overview("mp_stalingrad", 3370, -722, 4764);	// zzzzz_rPAM_p01_classics_v4.pk3
-		case "mp_tigertown": return overview("mp_tigertown", -980, -1632, 7200);	// zzzzz_rPAM_p01_classics_v4.pk3
-		case "mp_toujane": return overview("mp_toujane", 1434, 1652, 5004);	// zzzzz_rPAM_p08_tj.pk3
-		case "mp_wawa_a": return overview("mp_wawa_a", 596, -652, 2544);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_wawa_b": return overview("mp_wawa_a", 596, -652, 2544);	// zzzzz_rPAM_p03_custom_v6.pk3
-		case "mp_wawa_r": return overview("mp_wawa_a", 596, -652, 2544);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_aim_a": return overview("mp_aim_a", -8, 104, 3600, 1926);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_aim_b": return overview("mp_aim_a", -8, 104, 3600, 1926);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_aim_r": return overview("mp_aim_a", -8, 104, 3600, 1926);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_beauville": return overview("mp_beauville", -132, -2708, 5067, 7147);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_blaoaim_a": return overview("mp_blaoaim_a", 1536, 1024, 1596, 2090);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_blaoaim_b": return overview("mp_blaoaim_a", 1536, 1024, 1596, 2090);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_blaoaim_r": return overview("mp_blaoaim_a", 1536, 1024, 1596, 2090);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_bocage": return overview("mp_bocage", -968, 5436, 11295, 16476);	// zzzzz_rPAM_p01_classics_v4.pk3
+		case "mp_brecourt": return overview("mp_brecourt", 56, -538, 11776, 9016);	// pak4.pk3
+		case "mp_burgundy": return overview("mp_burgundy", 710, 1250, 4545, 5386);	// zzzzz_rPAM_p09_bg_v3.pk3
+		case "mp_carentan": return overview("mp_carentan", 328, 1100, 5781, 7290);	// pak4.pk3
+		case "mp_chateau": return overview("mp_chateau", 478, 1080, 4148, 3678);	// pak4.pk3
+		case "mp_dawnville": return overview("mp_dawnville", 118, -16936, 6394, 5457);	// pak5.pk3
+		case "mp_dawnville_gg": return overview("mp_dawnville_gg", 253, -16384, 6048, 4335);	// zzzzz_rPAM_p05_cod2dw_v6.pk3
+		case "mp_dawnville_x": return overview("mp_dawnville_x", 118, -16936, 6394, 5457);	// zzzzz_rPAM_p02_curiousfox_v4.pk3
+		case "mp_depot": return overview("mp_depot", -1242, 220, 4114, 5677);	// pak5.pk3
+		case "mp_germantown": return overview("mp_germantown", 1620, -1512, 4288, 4583);	// zzzzz_rPAM_p01_classics_v4.pk3
+		case "mp_hanoi": return overview("mp_hanoi", 2368, -2504, 5245, 5235);	// zzzzz_rPAM_p04_hanoi_v3.pk3
+		case "mp_harbor": return overview("mp_harbor", -8780, -7456, 6957, 4103);	// pak5.pk3
+		case "mp_hurtgen": return overview("mp_hurtgen", 1086, -1024, 12922, 11710);	// pak5.pk3
+		case "mp_kandanos": return overview("mp_kandanos", 368, 524, 4228, 6424);	// zzzzz_rPAM_p04_kandanos_v4.pk3
+		case "mp_neuville": return overview("mp_neuville", -14276, 3440, 7168, 6762);	// zzzzz_rPAM_p01_classics_v4.pk3
+		case "mp_pavlov": return overview("mp_pavlov", -9096, 10452, 5619, 4885);	// pak5.pk3
+		case "mp_pegasusday": return overview("mp_pegasusday", 759, -694, 6708, 7200);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_pegasusnight": return overview("mp_pegasusnight", 2544, 1156, 12223, 12851);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_pgaim_a": return overview("mp_pgaim_a", 1, -256, 1596, 2362);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_pgaim_r": return overview("mp_pgaim_a", 1, -256, 1596, 2362);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_powcamp": return overview("mp_powcamp", -26, 1864, 4653, 7636);	// pak5.pk3
+		case "mp_railyard": return overview("mp_railyard", -1168, 942, 4519, 5588);	// pak5.pk3
+		case "mp_railyard_x": return overview("mp_railyard", -1168, 942, 4519, 5588);	// zzzzz_rPAM_p02_curiousfox_v4.pk3
+		case "mp_rocket": return overview("mp_rocket", 10292, 2848, 8383, 11177);	// pak5.pk3
+		case "mp_ship": return overview("mp_ship", 4332, 51, 9716, 3245);	// pak5.pk3
+		case "mp_stalingrad": return overview("mp_stalingrad", 3370, -722, 4036, 2870);	// zzzzz_rPAM_p01_classics_v4.pk3
+		case "mp_tigertown": return overview("mp_tigertown", -980, -1304, 5830, 5158);	// zzzzz_rPAM_p01_classics_v4.pk3
+		case "mp_toujane": return overview("mp_toujane", 1434, 1652, 4214, 4131);	// zzzzz_rPAM_p08_tj.pk3
+		case "mp_wawa_a": return overview("mp_wawa_a", 596, -652, 1743, 1743);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_wawa_b": return overview("mp_wawa_a", 596, -652, 1743, 1743);	// zzzzz_rPAM_p03_custom_v6.pk3
+		case "mp_wawa_r": return overview("mp_wawa_a", 596, -652, 1743, 1743);	// zzzzz_rPAM_p03_custom_v6.pk3
 	}
 	return undefined;
 }
 
-overview(name, x, y, span)
+overview(name, x, y, span, spanY)
 {
 	c = spawnstruct();
 	c.image = "gfx/streamer/overview/" + name + ".jpg";
 	c.x = x;
 	c.y = y;
-	c.span = span;
+	c.span = span;		// world width of the image
+	c.spanY = spanY;	// world height of the image
 	c.up = 90;
 	return c;
 }
