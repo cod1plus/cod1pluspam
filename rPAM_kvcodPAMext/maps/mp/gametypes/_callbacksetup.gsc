@@ -355,6 +355,12 @@ client:client_2  health:55 damage:45 hitLoc:torso_lower iDFlags:0 sMeansOfDeath:
 //CodeCallback_PlayerDamage(eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc, timeOffset)
 CodeCallback_PlayerDamage(eInflictor, eAttacker, iDamage, iDFlags, sMeansOfDeath, sWeapon, vPoint, vDir, sHitLoc)
 {
+	// cod1plus 2026-09-30: the helmet is hittable now (the character scripts attach it with
+	// collision). A helmet hit is a head hit for every rule (pistol / ppsh one-shot), the
+	// kill feed and the stats.
+	if (isDefined(sHitLoc) && sHitLoc == "helmet")
+		sHitLoc = "head";
+
 	self endon("disconnect");
 
 	// Resets the infinite loop check timer, to prevent an incorrect infinite loop error when a lot of script must be run
@@ -1112,6 +1118,12 @@ suicide()
 //CodeCallback_PlayerKilled(eInflictor, eAttacker, iDamage, sMeansOfDeath, sWeapon, vDir, sHitLoc, timeOffset, deathAnimDuration)
 CodeCallback_PlayerKilled(eInflictor, eAttacker, iDamage, sMeansOfDeath, sWeapon, vDir, sHitLoc)
 {
+	// cod1plus 2026-09-30: the helmet is hittable now (the character scripts attach it with
+	// collision). A helmet hit is a head hit for every rule (pistol / ppsh one-shot), the
+	// kill feed and the stats.
+	if (isDefined(sHitLoc) && sHitLoc == "helmet")
+		sHitLoc = "head";
+
 	self endon("disconnect");
 
 	// Resets the infinite loop check timer, to prevent an incorrect infinite loop error when a lot of script must be run
