@@ -1411,6 +1411,7 @@ startRound()
 	setClientNameMode("manual_change"); // name is changed after map restart
 
 	roundCountDownTime = level.roundlength * 60;
+	level.streamerNative_roundEnd = getTime() + roundCountDownTime * 1000;	// native streamer overlay clock
 	if (roundCountDownTime > 15) {
 		// until 15 secs is left, use timer w/o millis
 		roundCountDownTimeSubstracted = roundCountDownTime - 15;
@@ -1585,6 +1586,7 @@ HUD_StratTime(time)
 {
 	if (time <= 0)
 		return;
+	level.streamerNative_stratEnd = getTime() + time * 1000;	// native streamer overlay clock
 
 	// Strat Time
 	//strattime = maps\mp\gametypes\global\_global::addHUD(0, 450, 2, (.98, .827, .58), "center", "bottom", "center_safearea", "top");

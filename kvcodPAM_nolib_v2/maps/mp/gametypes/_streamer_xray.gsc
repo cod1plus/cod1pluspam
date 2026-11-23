@@ -178,6 +178,18 @@ XRAY_Loop()
 		if (!maps\mp\gametypes\_streamer::isStreamerModeEnabled(self))
 			break;
 
+		// the 1.6X client draws an exact XRAY itself from _streamer_native.gsc's feed
+		if (maps\mp\gametypes\_streamer_native::isNative(self))
+		{
+			if (self.streamerSystem_XRAY_count > 0)
+			{
+				self XRAY_Destroy();
+				self.streamerSystem_XRAY_huds = [];
+			}
+			self.streamerSystem_playerToFollow = undefined;
+			continue;
+		}
+
 		// If player started free spectating, force XRAY by another toggler
 		if (freeSpectating != self.streamerSystem_freeSpectating && self.streamerSystem_freeSpectating)
 			self.streamerSystem_XRAY_inFreeSpectating = true;

@@ -407,6 +407,14 @@ Radar_Loop()
 		if (!maps\mp\gametypes\_streamer::isStreamerModeEnabled(self))
 			break;
 
+		// the 1.6X client draws the radar itself from _streamer_native.gsc's feed
+		if (maps\mp\gametypes\_streamer_native::isNative(self))
+		{
+			if (isDefined(self.streamerRadar_bg))
+				self Radar_Destroy();
+			continue;
+		}
+
 		wanted = self.pers["streamerSystem_radar"] && level.scr_streamer_radar;
 		if (!wanted)
 		{

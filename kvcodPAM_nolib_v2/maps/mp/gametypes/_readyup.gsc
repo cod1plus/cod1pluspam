@@ -892,6 +892,7 @@ End_Readyup_Mode()
 	else
 		// Reset only in timeout because normally it will get reseted by map_restart and also this caused to add 1 death to players if in the same frame player was killed
 		level.in_readyup = 0;
+		level.readyup_resumeAt = undefined;
 
 }
 
@@ -903,6 +904,7 @@ ReadyUp_AutoResume(minutes)
 	level endon("readyup_removeAutoResume");
 
 	level thread HUD_ReadyUp_ResumingIn(minutes);
+	level.readyup_resumeAt = getTime() + (int)(minutes * 60000);	// the streamer overlay's countdown (_streamer_native::feedPause)
 
 	// Resume after
 	wait level.fps_multiplier * minutes * 60;

@@ -35,6 +35,9 @@ init()
 	maps\mp\gametypes\global\_global::addEventListener("onConnectedAll",    	::onConnectedAll);
 	maps\mp\gametypes\global\_global::addEventListener("onMenuResponse",  	::onMenuResponse);
 
+	// kill feed, round stats and round result of the 1.6X client's native overlay
+	maps\mp\gametypes\_streamer_native::init();
+
 	//setCvar("debug_spectator", 1);
 }
 
@@ -285,6 +288,8 @@ onSpawnedStreamer()
 		self thread maps\mp\gametypes\_streamer_xray::XRAY_Loop();
 		// Radar
 		self thread maps\mp\gametypes\_streamer_radar::Radar_Loop();
+		// Data feed of the 1.6X client's native overlay (idle until the client asks for it)
+		self thread maps\mp\gametypes\_streamer_native::Native_Loop();
 		// wait 1;
 
 		self thread cinematicMove();
@@ -617,6 +622,13 @@ onMenuResponse(menu, response)
 		else if (response == "streamersystem_radar")
 		{
 			self thread maps\mp\gametypes\_streamer_radar::toggle();
+			return true;
+		}
+
+		// sent by the 1.6X client (not a key): it draws the overlay itself from now on
+		else if (response == "streamersystem_native")
+		{
+			self maps\mp\gametypes\_streamer_native::enable();
 			return true;
 		}
 

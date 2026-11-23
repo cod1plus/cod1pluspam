@@ -217,7 +217,7 @@ potencialAutoKillcamForPlayer(killId)
 		if (record.deleted || !isDefined(record.player))
 			return;
 
-		if ((gettime() - record.timeFirst) > 40000)
+		if (tooOldToReplay(record))
 			return;
 
 		// If round ended change it to auto-replay
@@ -518,7 +518,7 @@ HUD_SetRowsInMenu()
 
 		if (record.deleted) continue;
 		if (!isDefined(record.player)) continue;
-		if ((gettime() - record.time) > 37000) continue; // 40 seconds is a maximum that killcam can replay
+		if (tooOldToReplay(record)) continue; // the archive keeps 30 s at sv_fps 40 (see _killcam::maxArchiveTime)
 
 		self.streamerSystem_killcam_indexes[row] = i;
 
@@ -561,6 +561,12 @@ replayActionForAll(killId)
 }
 
 
+// The last kill of the record must still be in the archive, with a second before it
+tooOldToReplay(record)
+{
+	return (gettime() - record.time) > (int)((maps\mp\gametypes\_killcam::maxArchiveTime() - 1) * 1000);
+}
+
 replayAction(killId, print)
 {
 	self endon("disconnect");
@@ -583,7 +589,7 @@ replayAction(killId, print)
 		return;
 	}
 
-	if ((gettime() - record.timeFirst) > 40000)
+	if (tooOldToReplay(record))
 	{
 		if (print || level.debug_spectator) self iprintln("^1Record is too old and can not be replayed");
 
@@ -606,6 +612,8 @@ replayAction(killId, print)
 		actionTime = (int)((record.time - record.timeFirst)/1000);
 
 	pastTime = timeBeforeKill + (int)((gettime() - record.timeFirst) / 1000);
+	// (_killcam::killcam starts it at most maxArchiveTime() back and shortens it by the same time,
+	// so a long series of kills keeps its end: the last kills)
 
 	self maps\mp\gametypes\_killcam::killcam(record.player getEntityNumber(), pastTime, (timeBeforeKill + actionTime + timeAfterKill), 0, false, true); // killcam(attackerNum, pastTime, length, offsetTime, respawn, isReplay)
 }

@@ -37,6 +37,12 @@ Do_Half_Time()
 	game["is_halftime"] = true;
 	logPrint("HalfTime;\n");
 
+	// the streamer overlay keeps its round history in the sides of the first half and
+	// recolours it with this count (_streamer_native: S field)
+	if (!isDefined(game["streamerNative_swaps"]))
+		game["streamerNative_swaps"] = 0;
+	game["streamerNative_swaps"]++;
+
 	// Switch scores
 	axis_score = game["axis_score"];
 	game["axis_score"] = game["allies_score"];

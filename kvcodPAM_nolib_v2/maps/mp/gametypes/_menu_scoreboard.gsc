@@ -81,6 +81,7 @@ hide_scoreboard(distributed)
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_plants", "");
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_defuses", "");
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_visible", "0");
+	self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_tab", "0");
 
 	if (isDefined(distributed) && distributed)
 		wait level.fps_multiplier * 0.25;
@@ -629,7 +630,11 @@ generatePlayerList(toggle)
 		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_grenades", self.scoreboard.grenades);
 		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_plants", self.scoreboard.plants);
 		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_defuses", self.scoreboard.defuses);
-		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_visible", "1");
+		// a streamer whose 1.6X client draws the broadcast gets its own match overview instead
+		if (maps\mp\gametypes\_streamer_native::isNative(self))
+			self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_tab", "1");
+		else
+			self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_scoreboard_visible", "1");
 
 
 

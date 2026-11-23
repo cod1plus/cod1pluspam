@@ -51,6 +51,11 @@ killcam(attackerNum, pastTime, length, offsetTime, respawn, isReplay)
 		self.sessionstate = "spectator";
 	self.spectatorclient = attackerNum;
 	self.archivetime = pastTime;
+	// past the safe edge of the archive the engine would only find key frames (1 a second):
+	// start later instead, the time cut is taken off the killcam below (cutedTime)
+	maxPast = maxArchiveTime();
+	if (self.archivetime > maxPast)
+		self.archivetime = maxPast;
 	self.psoffsettime = offsetTime;
 
 	// Allow spectating all in killcam
@@ -205,11 +210,18 @@ killcam(attackerNum, pastTime, length, offsetTime, respawn, isReplay)
 	self.kc_timer.x = 336;
 	self.kc_timer setTenthsTimer(length - cutedTime);
 
+	// for the streamer overlay (_streamer_native: P field): the part of the past on screen
+	self.killcamInfo = spawnstruct();
+	self.killcamInfo.attacker = attackerNum;
+	self.killcamInfo.from = (int)((getTime() - self.archivetime * 1000) / 100);
+	self.killcamInfo.length = (int)((length - cutedTime) * 10);
+	self.killcamInfo.began = getTime();
+
 	self thread spawnedKillcamCleanup();
 	self thread waitSkipKillcamButton();
 
 	self thread waitKillcamTime();
-	self thread waitTime(length);
+	self thread waitTime(length - cutedTime);
 
 	self waittill("end_killcam");
 
@@ -231,9 +243,24 @@ killcam(attackerNum, pastTime, length, offsetTime, respawn, isReplay)
 	self.psoffsettime = 0;
 
 	self.killcam = undefined;
+	self.killcamInfo = undefined;
 
 	self.skip_setspectatepermissions = false;
 	self thread maps\mp\gametypes\_spectating::setSpectatePermissions();
+}
+
+// How far back (seconds) a killcam can start and still play every frame.
+// The server archives 1200 frames (30 s at sv_fps 40, 60 s at 20) and trims an older archivetime
+// to exactly that edge. An archived frame is a delta from a key frame (one a second, cached), and a
+// frame whose key frame already fell out of the 1200 cannot be rebuilt: at the edge only the key
+// frames are left, so a killcam started there showed 1 frame a second for its whole length
+// (a replay of several kills, the first one 30-40 s ago). One second of key frames + a margin.
+maxArchiveTime()
+{
+	fps = 20;
+	if (isDefined(level.sv_fps) && level.sv_fps > 0)
+		fps = level.sv_fps;
+	return (1200.0 / fps) - 1.5;
 }
 
 waitTime(time)

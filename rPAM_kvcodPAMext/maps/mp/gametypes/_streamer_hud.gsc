@@ -431,6 +431,15 @@ settingsChangedForPlayer(what) // "", auto, xray, damage
 	with "CL_GetServerCommand: A reliable command was cycled out". An unchanged value costs
 	nothing; a change over budget is simply sent on a following tick (the cache is only
 	updated when the value is really sent). Budget refilled by HUD_PlayerBoxes_Loop.
+
+	Round start: a map_restart leaves every client a moment without acknowledging anything
+	(the server only talks to a restarting client once a second, then the client's own restart
+	hitch: 0.3-0.6 s on mp_liberation). Every reliable command sent meanwhile waits in the
+	64-command buffer of that client; at 65 the server drops it ("Server command overflow").
+	The PAM already sends ~25 commands at a spawn, the top bar's round-start refresh was ~50 more
+	in 0.3 s: the streamer was kicked at the end of every round. So the loops below wait
+	streamerGrace() after their start (= the streamer's spawn of the new round) and the top bar
+	sends at most 3 changed cvars a tick (30 a second; a full refresh takes ~2 s).
 */
 streamerCvar(cvar, value)
 {
@@ -447,6 +456,12 @@ streamerCvar(cvar, value)
 	self maps\mp\gametypes\global\_global::setClientCvarIfChanged(cvar, v);
 }
 
+// Wait until the client is out of its map_restart (see above)
+streamerGrace()
+{
+	wait level.fps_multiplier * 1.5;
+}
+
 HUD_PlayerBoxes_Loop()
 {
 	self endon("disconnect");
@@ -456,6 +471,7 @@ HUD_PlayerBoxes_Loop()
 	self endon("streamerSystem_boxes_loop");
 
 	wait level.frame;
+	self streamerGrace();
 	//wait 1;
 
 
@@ -465,7 +481,7 @@ HUD_PlayerBoxes_Loop()
 	{
 		wait level.fps_multiplier * 0.1;
 
-		self.streamerSystem_cvarBudget = 16;	// changed top bar cvars sent per tick, see streamerCvar
+		self.streamerSystem_cvarBudget = 3;	// changed top bar cvars sent per tick, see streamerCvar
 
 		if (!maps\mp\gametypes\_streamer::isStreamerModeEnabled(self))
 		{
@@ -636,6 +652,9 @@ HUD_PlayerBoxes_Loop()
 		}
 
 //3		self setClientCvarIfChanged("ui_streamersystem_matchInfo", matchInfo);
+		// the 1.6X broadcast has its own match tracker: the PAM text stays off for a native streamer
+		if (maps\mp\gametypes\_streamer_native::isNative(self))
+			matchInfo = "";
 		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamersystem_matchInfo", matchInfo);
 
 
@@ -682,7 +701,11 @@ HUD_PlayerBoxes_Loop()
 		}
 //k217_killfeed
 		// print current killfeed variable value to streamer
-		self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamer_killfeed", game["streamer_killfeed"]);
+		// the 1.6X broadcast has its own kill feed
+		if (maps\mp\gametypes\_streamer_native::isNative(self))
+			self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamer_killfeed", "");
+		else
+			self maps\mp\gametypes\global\_global::setClientCvarIfChanged("ui_streamer_killfeed", game["streamer_killfeed"]);
 
 //was deactivated
 /*

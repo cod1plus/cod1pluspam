@@ -19,6 +19,9 @@ init()
 // Called at the end of the last round
 Do_Map_End()
 {
+	// the 1.6X streamer overlay shows its winning screen from now on (_streamer_native: Z1)
+	level.streamerNative_mapOver = true;
+
 	HUD_Matchover();
 
 	// Cancel timeout if called
@@ -41,7 +44,9 @@ Do_Map_End()
 	{
 		player = players[i];
 
-		player closeMenu();
+		// a 1.6X streamer keeps his menu: his client draws the winning screen over the intermission
+		if (!isDefined(player.pers["streamerSystem_native"]) || !player.pers["streamerSystem_native"])
+			player closeMenu();
 		//player closeInGameMenu();
 
 		player [[level.spawnIntermission]]();
