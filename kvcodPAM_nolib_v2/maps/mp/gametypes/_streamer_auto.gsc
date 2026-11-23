@@ -456,8 +456,8 @@ autoFollowedPlayer()
 			continue;
 		}
 
-		// Can switch after 6 second from last switch
-		if ((gettime() - level.streamerSystem_lastChange) < 6000)
+		// Can switch after 4 seconds from the last switch (zPAM: 6)
+		if ((gettime() - level.streamerSystem_lastChange) < 4000)
 		{
 			continue;
 		}
@@ -498,189 +498,131 @@ autoFollowedPlayer()
 		else
 			level.streamerSystem_auto_statusText = "STRING_AUTO_SPECTATING";
 
-		// Count numbers of players in teams
-		alliesAlive = 0;
-		axisAlive = 0;
-		teamPlayersCount = 0;
-		for(i = 0; i < players.size; i++)
+		// The director (2026-11-23, "camera plus maligne"): every living player gets a score for
+		// how much is happening to him right now; the camera moves only to a clearly better one.
+		// (Replaces zPAM's rules: 1vX / 1v1 / bomb / first player of the SAME team with an enemy
+		// in sight - it never crossed to the other team, and took the first match, not the best.)
+		if (spectated_player.sessionstate != "playing")
+			continue;	// his death: _streamer::spectating_loop shows it, then his killer
+		best = directorBest(spectated_player);
+		if (!isDefined(best) || best == spectated_player)
+			continue;
+		if (best.streamerAuto_score < spectated_player.streamerAuto_score + 45)
+			continue;
+
+		level maps\mp\gametypes\_streamer::followPlayer(best);
+		if (level.debug_spectator) printToAutoSpectators("director: " + best.name + " (" + best.streamerAuto_score + ")");
+		level.streamerSystem_auto_lockedUntill = gettime() + 3500;	// at least 3.5 s on him
+		level.streamerSystem_auto_statusText = best.streamerAuto_why;
+	}
+}
+
+// How much is happening to a player right now (self). -1 = not playing, 0 = nothing. Read by
+// directorBest() and _streamer::spectating_loop (who to show when the followed player dies).
+// Keeps its main reason in self.streamerAuto_why (a STRING_AUTO_SPECTATING_REASON_* key).
+scorePlayer()
+{
+	self.streamerAuto_why = "STRING_AUTO_SPECTATING";
+	if ((self.pers["team"] != "allies" && self.pers["team"] != "axis") || self.sessionstate != "playing")
+		return -1;
+	now = getTime();
+	sc = 0;
+	why = 0;
+	// on the bomb (planting or defusing: his progress bar is up)
+	if (isDefined(self.progressbar))
+	{
+		sc += 160;
+		why = 160;
+		self.streamerAuto_why = "STRING_AUTO_SPECTATING_REASON_BOMB_PLANTED";
+	}
+	if (isDefined(self.autospectator_visibleEnemy))
+	{
+		sc += 100;
+		if (why < 100) { why = 100; self.streamerAuto_why = "STRING_AUTO_SPECTATING_REASON_VISIBLE_ENEMY"; }
+	}
+	else if (isDefined(self.streamerSystem_visibleEnemyInFuture))
+	{
+		sc += 45;
+		if (why < 45) { why = 45; self.streamerAuto_why = "STRING_AUTO_SPECTATING_REASON_VISIBLE_ENEMY_IN_FUTURE"; }
+	}
+	if (isDefined(self.autospectator_seenByEnemy))
+	{
+		sc += 70;
+		if (why < 70) { why = 70; self.streamerAuto_why = "STRING_AUTO_SPECTATING_REASON_VISIBLE_BY_ENEMY"; }
+	}
+	else if (isDefined(self.streamerSystem_seenByEnemyInFuture))
+		sc += 30;
+	// in a fight: hit someone / was hit in the last 2.5 s
+	if (isDefined(self.streamerAuto_hitAt) && now - self.streamerAuto_hitAt < 2500)
+		sc += 60;
+	if (isDefined(self.streamerAuto_hurtAt) && now - self.streamerAuto_hurtAt < 2500)
+		sc += 50;
+	// close to an enemy (up to +80 at contact, nothing past 1200 units)
+	if (isDefined(self.streamerAuto_nearest) && self.streamerAuto_nearest < 1200)
+	{
+		sc += (int)((1200 - self.streamerAuto_nearest) / 15);
+		if (why < 40 && self.streamerAuto_nearest < 600) { why = 40; self.streamerAuto_why = "STRING_AUTO_SPECTATING_REASON_NO_ACTION_NEARBY"; }
+	}
+	// the last of his team against at least one: the story of the round
+	if (isDefined(self.streamerAuto_lastAlive) && self.streamerAuto_lastAlive)
+	{
+		sc += 120;
+		if (why < 120) { why = 120; self.streamerAuto_why = "STRING_AUTO_SPECTATING_REASON_LAST_PLAYER"; }
+	}
+	// bomb planted: the defenders going for it
+	if (level.gametype == "sd" && isDefined(level.bombplanted) && level.bombplanted && isDefined(level.bombmodel) && isDefined(game["defenders"]) && self.pers["team"] == game["defenders"])
+	{
+		d = distance(self.origin, level.bombmodel.origin);
+		if (d < 900)
+			sc += (int)((900 - d) / 15);
+	}
+	return sc;
+}
+
+// The living player with the highest score (each player's score in .streamerAuto_score),
+// undefined if nobody plays. current = the followed player: +35 keeps the camera from
+// ping-ponging between two equal fights.
+directorBest(current)
+{
+	players = getentarray("player", "classname");
+	alive = [];
+	alive["allies"] = 0;
+	alive["axis"] = 0;
+	for (i = 0; i < players.size; i++)
+		if ((players[i].pers["team"] == "allies" || players[i].pers["team"] == "axis") && players[i].sessionstate == "playing")
+			alive[players[i].pers["team"]]++;
+	best = undefined;
+	bestScore = -1;
+	for (i = 0; i < players.size; i++)
+	{
+		p = players[i];
+		p.streamerAuto_score = -1;
+		if ((p.pers["team"] != "allies" && p.pers["team"] != "axis") || p.sessionstate != "playing")
+			continue;
+		// nearest living enemy
+		p.streamerAuto_nearest = undefined;
+		for (j = 0; j < players.size; j++)
 		{
-			player = players[i];
-			if ((player.pers["team"] == "allies" || player.pers["team"] == "axis"))
-			{
-				// Count alive players
-				if (player.sessionstate == "playing" || player.sessionstate == "dead") // dead players are players in spectator session state
-				{
-					if (player.pers["team"] == "allies")
-						alliesAlive++;
-					else
-						axisAlive++;
-				}
-				teamPlayersCount++;
-			}
-		}
-		// If it is 2v2 match or more
-		if (teamPlayersCount >= 4)
-		{
-			follow_team = "";
-			switch_reason = "";
-			hud_text = "";
-
-			// 1vX - always folow alone player
-			if (alliesAlive == 1 && axisAlive > 1)
-			{
-				follow_team = "allies";
-				switch_reason = "Last player in team";
-				hud_text = "STRING_AUTO_SPECTATING_REASON_LAST_PLAYER";
-			}
-
-			// 1vX - always folow alone player
-			else if (axisAlive == 1 && alliesAlive > 1)
-			{
-				follow_team = "axis";
-				switch_reason = "Last player in team";
-				hud_text = "STRING_AUTO_SPECTATING_REASON_LAST_PLAYER";
-			}
-
-			// 1v1 - follow player with lower team score
-			else if (alliesAlive == 1 && axisAlive == 1 && game["allies_score"] != game["axis_score"])
-			{
-				// if my team score is lower then enemy team
-				if (game["allies_score"] < game["axis_score"])
-					follow_team = "allies";
-				else
-					follow_team = "axis";
-
-				switch_reason = "1v1 and lower score";
-				hud_text = "STRING_AUTO_SPECTATING_REASON_1V1_SCORE";
-			}
-
-			if (follow_team != "")
-			{
-				for(i = 0; i < players.size; i++)
-				{
-					player = players[i];
-					if (player.pers["team"] == follow_team && (player.sessionstate == "playing" || player.sessionstate == "dead"))
-					{
-						level maps\mp\gametypes\_streamer::followPlayer(player);
-						if (level.debug_spectator) printToAutoSpectators(switch_reason);
-						level.streamerSystem_auto_lockedUntill = gettime() + 1000; // wait some time untill next change
-						level.streamerSystem_auto_statusText = hud_text;
-						break;
-					}
-				}
+			e = players[j];
+			if (e == p || e.sessionstate != "playing" || (e.pers["team"] != "allies" && e.pers["team"] != "axis") || e.pers["team"] == p.pers["team"])
 				continue;
-			}
+			d = distance(p.origin, e.origin);
+			if (!isDefined(p.streamerAuto_nearest) || d < p.streamerAuto_nearest)
+				p.streamerAuto_nearest = d;
 		}
-
-
-
-		// By default, follow one team
-		followed_team = spectated_player.pers["team"];
-
-		// When bomb is planted, follow team with lower score
-		if (level.gametype == "sd" && level.bombplanted && alliesAlive >= 1 && axisAlive >= 1)
+		enemyTeam = "axis";
+		if (p.pers["team"] == "axis")
+			enemyTeam = "allies";
+		p.streamerAuto_lastAlive = alive[p.pers["team"]] == 1 && alive[enemyTeam] >= 1;
+		sc = p scorePlayer();
+		if (isDefined(current) && p == current)
+			sc += 35;
+		p.streamerAuto_score = sc;
+		if (sc > bestScore)
 		{
-			if ((gettime() - level.bombtimerstart) < 3000) // if no action, follow player who actually planted the bomb
-			{
-				if (isDefined(level.planting_player) && isAlive(level.planting_player)) // always follow planter when bomb is planted
-				{
-					level maps\mp\gametypes\_streamer::followPlayer(level.planting_player);
-					if (level.debug_spectator) printToAutoSpectators("Bomb planted, following planter");
-					level.streamerSystem_auto_lockedUntill = gettime() + 4000; // wait some time untill next change
-					level.streamerSystem_auto_statusText = "STRING_AUTO_SPECTATING_REASON_BOMB_PLANTED";
-					continue;
-				}
-			}
-			else if (game["allies_score"] != game["axis_score"])
-			{
-				if (game["allies_score"] < game["axis_score"])		followed_team = "allies";
-       			 	else if (game["allies_score"] > game["axis_score"])	followed_team = "axis";
-       			 	if (level.debug_spectator && followed_team != followed_team_last) printToAutoSpectators("bomb planted, following lower score team:" + followed_team);
-				level.streamerSystem_auto_statusText = "STRING_AUTO_SPECTATING_REASON_BOMB_SCORE";
-			}
-		}
-
-		// In HQ, follow team that is defending the hq
-		if (level.gametype == "hq" && (level.DefendingRadioTeam == "allies" || level.DefendingRadioTeam == "axis"))
-		{
-			followed_team = level.DefendingRadioTeam;
-			if (level.debug_spectator && followed_team != followed_team_last) printToAutoSpectators("following defending radio team: " + followed_team);
-			level.streamerSystem_auto_statusText = "STRING_AUTO_SPECTATING_REASON_RADIO_DEFEND";
-		}
-
-		followed_team_last = followed_team;
-
-
-
-		// Possible to change to player from same spectated team
-		follow = false;
-		switch_reason = "";
-		hud_text = "";
-		for(i = 0; i < players.size; i++)
-		{
-			player = players[i];
-			if ((player.pers["team"] == followed_team))
-			{
-				// Player has visible enemy on their screen
-				if (isDefined(player.autospectator_visibleEnemy))
-				{
-					follow = true;
-					switch_reason = "Visible enemy on screen";
-					hud_text = "STRING_AUTO_SPECTATING_REASON_VISIBLE_ENEMY";
-				}
-
-				// Player has visible enemy on their screen
-				if (isDefined(player.streamerSystem_visibleEnemyInFuture))
-				{
-					follow = true;
-					switch_reason = "Visible enemy on screen in future";
-					hud_text = "STRING_AUTO_SPECTATING_REASON_VISIBLE_ENEMY_IN_FUTURE";
-				}
-
-				// Too long no change, find players very close together to follow
-				if ((gettime() - level.streamerSystem_lastChange) > 16000)
-				{
-					// Enemy is seeing this player or their screen
-					if (isDefined(player.autospectator_seenByEnemy))
-					{
-						follow = true;
-						switch_reason = "Is visible on enemy screen";
-						hud_text = "STRING_AUTO_SPECTATING_REASON_VISIBLE_BY_ENEMY";
-					}
-					else if (isDefined(player.streamerSystem_seenByEnemyInFuture))
-					{
-						follow = true;
-						switch_reason = "Is visible on enemy screen in future";
-						hud_text = "STRING_AUTO_SPECTATING_REASON_VISIBLE_BY_ENEMY_IN_FUTURE";
-					}
-					// Player very close to each other (< 800)
-					else if (isDefined(player.autoSpectating_veryCloseToEnemy) && spectated_player != player)
-					{
-						follow = true;
-						switch_reason = "No action - close enemy near by";
-						hud_text = "STRING_AUTO_SPECTATING_REASON_NO_ACTION_NEARBY";
-					}/*
-					else if (player.isMoving)
-					{
-						follow = true;
-						switch_reason = "No action - moving player";
-						hud_text = "STRING_AUTO_SPECTATING_REASON_NO_ACTION_MOVING";
-					}*/
-				}
-
-				if (follow)
-				{
-					level maps\mp\gametypes\_streamer::followPlayer(player);
-
-					if (level.debug_spectator) printToAutoSpectators(switch_reason);
-
-					level.streamerSystem_auto_lockedUntill = gettime() + 8000;
-
-					level.streamerSystem_auto_statusText = hud_text;
-
-					break;
-				}
-			}
+			bestScore = sc;
+			best = p;
 		}
 	}
+	return best;
 }

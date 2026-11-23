@@ -1636,12 +1636,27 @@ spectating_loop()
 		}
 		no_one = false;
 
-		// If followed player is dead, follow next no matter what
+		// If followed player is dead: his death is shown 1.5 s, then his killer (the fight goes on
+		// with him), else the auto camera's best player, else the next one
 		if (spectated_player.sessionstate != "playing")
 		{
-			wait level.fps_multiplier * 1;
+			wait level.fps_multiplier * 1.5;
+			if (!isDefined(spectated_player) || !isPlayer(spectated_player))
+			{
+				level followNextPlayer();
+				continue;
+			}
 
-			level followNextPlayer();
+			next = undefined;
+			killer = spectated_player.streamerAuto_killer;
+			if (isDefined(killer) && isPlayer(killer) && killer.sessionstate == "playing" && isDefined(spectated_player.streamerAuto_killedAt) && getTime() - spectated_player.streamerAuto_killedAt < 6000)
+				next = killer;
+			if (!isDefined(next))
+				next = maps\mp\gametypes\_streamer_auto::directorBest(undefined);
+			if (isDefined(next))
+				level followPlayer(next);
+			else
+				level followNextPlayer();
 			if (level.debug_spectator) printToStreamers("(followed player died)");
 			continue;
 		}
