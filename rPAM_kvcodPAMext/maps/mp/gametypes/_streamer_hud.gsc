@@ -505,6 +505,18 @@ HUD_PlayerBoxes_Loop()
 			}
 		}
 
+		// A FPSChallenge match (cod1plus.so match_teams.c: cod1x_team1_side = where team 1 plays
+		// now, from the players' logins): team 1 always on the left - its colour changes at the
+		// half-time, not its place, as on a CS2 broadcast
+		team1Side = getCvar("cod1x_team1_side");
+		if (team1Side == "allies" || team1Side == "axis")
+		{
+			teamLeft = team1Side;
+			teamRight = "axis";
+			if (team1Side == "axis")
+				teamRight = "allies";
+		}
+
 		// Top bar slots: a player keeps his box (and radar dot) for the whole map, dead or alive
 		level.streamerSystem_boxesLeft_players = updateSlots("left", teamLeft);
 		level.streamerSystem_boxesRight_players = updateSlots("right", teamRight);
@@ -908,6 +920,8 @@ update_top_header(teamLeft, teamRight)
 
 	self streamerCvar("ui_streamersystem_top_name1", top_team_name(teamLeft));
 	self streamerCvar("ui_streamersystem_top_name2", top_team_name(teamRight));
+	self streamerCvar("ui_streamersystem_top_tag1", top_team_tag(teamLeft));
+	self streamerCvar("ui_streamersystem_top_tag2", top_team_tag(teamRight));
 	self streamerCvar("ui_streamersystem_top_score1", getTeamScore(teamLeft));
 	self streamerCvar("ui_streamersystem_top_score2", getTeamScore(teamRight));
 	self streamerCvar("ui_streamersystem_top_info", info);
@@ -915,6 +929,10 @@ update_top_header(teamLeft, teamRight)
 
 top_team_name(team)
 {
+	// a FPSChallenge match: the real team name on that side (cod1plus.so match_teams.c)
+	name = getCvar("cod1x_team_" + team);
+	if (name != "")
+		return maps\mp\gametypes\global\_global::getsubstr(name, 0, 28);
 	if (isDefined(game["scr_matchinfo"]) && game["scr_matchinfo"] > 0)
 	{
 		for (t = 1; t <= 2; t++)
@@ -928,6 +946,12 @@ top_team_name(team)
 	if (team == "allies")
 		return "ALLIES";
 	return "AXIS";
+}
+
+// the tag of the team on that side (a FPSChallenge match), "" else: the 1.6X overlay's team tile
+top_team_tag(team)
+{
+	return maps\mp\gametypes\global\_global::getsubstr(getCvar("cod1x_tag_" + team), 0, 6);
 }
 
 getPlayersByTeam(teamname)
